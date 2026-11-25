@@ -1,6 +1,6 @@
 { Unit tests for the game rules (no Castle Game Engine needed).
   Delphi: open this .dpr and press F9.
-  Free Pascal: see tests/README.md. }
+  Free Pascal: see the Tests section of README.md. }
 program robotnyala_tests;
 
 {$ifdef FPC}{$mode delphi}{$H+}{$endif}

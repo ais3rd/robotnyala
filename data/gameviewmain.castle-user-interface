@@ -4,14 +4,335 @@
   "Name" : "RootGroup",
   "$Children" : [
     {
+      "$$ClassName" : "TCastleViewport",
+      "BackgroundColorPersistent" : {
+        "$$ClassName" : "TCastleColorPersistent",
+        "Alpha" : 1.0,
+        "Blue" : 0.12,
+        "Green" : 0.1,
+        "Red" : 0.1
+      },
+      "Camera" : "PlayerCamera",
+      "FullSize" : true,
+      "Name" : "MainViewport",
+      "Items" : {
+        "$$ClassName" : "TCastleRootTransform",
+        "PhysicsProperties" : {
+          "$$ClassName" : "TPhysicsProperties",
+          "LayerCollisions" : {
+            "$$ClassName" : "TCastleLayerCollisions"
+          },
+          "LayerNames" : {
+            "$$ClassName" : "TCastleLayerNames"
+          }
+        },
+        "$Children" : [
+          {
+            "$$ClassName" : "TCastleCamera",
+            "Name" : "PlayerCamera",
+            "Orthographic" : {
+              "$$ClassName" : "TCastleOrthographic"
+            },
+            "Perspective" : {
+              "$$ClassName" : "TCastlePerspective"
+            },
+            "TranslationPersistent" : {
+              "$$ClassName" : "TCastleVector3Persistent",
+              "Y" : 1.7
+            }
+          },
+          {
+            "$$ClassName" : "TCastleDirectionalLight",
+            "Intensity" : 1.2,
+            "Name" : "SunLight",
+            "RotationPersistent" : {
+              "$$ClassName" : "TCastleVector4RotationPersistent",
+              "W" : 1.041,
+              "X" : -0.936,
+              "Y" : -0.351,
+              "Z" : 0.0
+            }
+          },
+          {
+            "$$ClassName" : "TCastleDirectionalLight",
+            "Intensity" : 0.6,
+            "Name" : "FillLight",
+            "RotationPersistent" : {
+              "$$ClassName" : "TCastleVector4RotationPersistent",
+              "W" : 2.341,
+              "X" : -0.832,
+              "Y" : 0.555,
+              "Z" : 0.0
+            }
+          },
+          {
+            "$$ClassName" : "TCastlePlane",
+            "ColorPersistent" : {
+              "$$ClassName" : "TCastleColorPersistent",
+              "Alpha" : 1.0,
+              "Blue" : 0.3,
+              "Green" : 0.32,
+              "Red" : 0.35
+            },
+            "Name" : "Floor",
+            "RenderOptions" : {
+              "$$ClassName" : "TCastleScene.TSceneRenderOptions"
+            },
+            "SizePersistent" : {
+              "$$ClassName" : "TCastleVector2Persistent",
+              "X" : 10.0,
+              "Y" : 10.0
+            }
+          },
+          {
+            "$$ClassName" : "TCastleBox",
+            "ColorPersistent" : {
+              "$$ClassName" : "TCastleColorPersistent",
+              "Alpha" : 1.0,
+              "Blue" : 0.6,
+              "Green" : 0.45,
+              "Red" : 0.4
+            },
+            "Name" : "WallNorth",
+            "RenderOptions" : {
+              "$$ClassName" : "TCastleScene.TSceneRenderOptions"
+            },
+            "SizePersistent" : {
+              "$$ClassName" : "TCastleVector3Persistent",
+              "X" : 10.0,
+              "Y" : 3.0,
+              "Z" : 0.2
+            },
+            "TranslationPersistent" : {
+              "$$ClassName" : "TCastleVector3Persistent",
+              "Y" : 1.5,
+              "Z" : -5.0
+            }
+          },
+          {
+            "$$ClassName" : "TCastleBox",
+            "ColorPersistent" : {
+              "$$ClassName" : "TCastleColorPersistent",
+              "Alpha" : 1.0,
+              "Blue" : 0.6,
+              "Green" : 0.45,
+              "Red" : 0.4
+            },
+            "Name" : "WallSouth",
+            "RenderOptions" : {
+              "$$ClassName" : "TCastleScene.TSceneRenderOptions"
+            },
+            "SizePersistent" : {
+              "$$ClassName" : "TCastleVector3Persistent",
+              "X" : 10.0,
+              "Y" : 3.0,
+              "Z" : 0.2
+            },
+            "TranslationPersistent" : {
+              "$$ClassName" : "TCastleVector3Persistent",
+              "Y" : 1.5,
+              "Z" : 5.0
+            }
+          },
+          {
+            "$$ClassName" : "TCastleBox",
+            "ColorPersistent" : {
+              "$$ClassName" : "TCastleColorPersistent",
+              "Alpha" : 1.0,
+              "Blue" : 0.5,
+              "Green" : 0.4,
+              "Red" : 0.38
+            },
+            "Name" : "WallEast",
+            "RenderOptions" : {
+              "$$ClassName" : "TCastleScene.TSceneRenderOptions"
+            },
+            "SizePersistent" : {
+              "$$ClassName" : "TCastleVector3Persistent",
+              "X" : 0.2,
+              "Y" : 3.0,
+              "Z" : 10.0
+            },
+            "TranslationPersistent" : {
+              "$$ClassName" : "TCastleVector3Persistent",
+              "X" : 5.0,
+              "Y" : 1.5
+            }
+          },
+          {
+            "$$ClassName" : "TCastleBox",
+            "ColorPersistent" : {
+              "$$ClassName" : "TCastleColorPersistent",
+              "Alpha" : 1.0,
+              "Blue" : 0.5,
+              "Green" : 0.4,
+              "Red" : 0.38
+            },
+            "Name" : "WallWest",
+            "RenderOptions" : {
+              "$$ClassName" : "TCastleScene.TSceneRenderOptions"
+            },
+            "SizePersistent" : {
+              "$$ClassName" : "TCastleVector3Persistent",
+              "X" : 0.2,
+              "Y" : 3.0,
+              "Z" : 10.0
+            },
+            "TranslationPersistent" : {
+              "$$ClassName" : "TCastleVector3Persistent",
+              "X" : -5.0,
+              "Y" : 1.5
+            }
+          },
+          {
+            "$$ClassName" : "TCastleImageTransform",
+            "Name" : "Enemy",
+            "SizePersistent" : {
+              "$$ClassName" : "TCastleVector2Persistent",
+              "X" : 1.0,
+              "Y" : 2.0
+            },
+            "TranslationPersistent" : {
+              "$$ClassName" : "TCastleVector3Persistent",
+              "Y" : 1.0,
+              "Z" : -2.0
+            },
+            "Url" : "castle-data:/images/enemy.png",
+            "$Behaviors" : [
+              {
+                "$$ClassName" : "TCastleBillboard",
+                "Name" : "EnemyBillboard"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "$$ClassName" : "TCastleImageControl",
+      "Content" : {
+        "$$ClassName" : "TCastleImagePersistent",
+        "Url" : "castle-data:/images/fist_left_idle.png"
+      },
+      "Height" : 400.0,
+      "Name" : "FistLeft",
+      "Stretch" : true,
+      "TranslationPersistent" : {
+        "$$ClassName" : "TCastleVector2Persistent",
+        "X" : 150.0,
+        "Y" : 40.0
+      },
+      "Width" : 400.0
+    },
+    {
+      "$$ClassName" : "TCastleImageControl",
+      "Content" : {
+        "$$ClassName" : "TCastleImagePersistent",
+        "Url" : "castle-data:/images/fist_right_idle.png"
+      },
+      "Height" : 400.0,
+      "HorizontalAnchorParent" : "hpRight",
+      "HorizontalAnchorSelf" : "hpRight",
+      "Name" : "FistRight",
+      "Stretch" : true,
+      "TranslationPersistent" : {
+        "$$ClassName" : "TCastleVector2Persistent",
+        "X" : -150.0,
+        "Y" : 40.0
+      },
+      "Width" : 400.0
+    },
+    {
+      "$$ClassName" : "TCastleRectangleControl",
+      "ColorPersistent" : {
+        "$$ClassName" : "TCastleColorPersistent",
+        "Alpha" : 0.8,
+        "Blue" : 0.0,
+        "Green" : 0.0,
+        "Red" : 0.0
+      },
+      "Height" : 36.0,
+      "Name" : "HPBarBack",
+      "TranslationPersistent" : {
+        "$$ClassName" : "TCastleVector2Persistent",
+        "X" : 20.0,
+        "Y" : -20.0
+      },
+      "VerticalAnchorParent" : "vpTop",
+      "VerticalAnchorSelf" : "vpTop",
+      "Width" : 500.0,
+      "$Children" : [
+        {
+          "$$ClassName" : "TCastleRectangleControl",
+          "ColorPersistent" : {
+            "$$ClassName" : "TCastleColorPersistent",
+            "Alpha" : 1.0,
+            "Blue" : 0.2,
+            "Green" : 0.85,
+            "Red" : 0.25
+          },
+          "Height" : 36.0,
+          "Name" : "HPBar",
+          "Width" : 500.0
+        },
+        {
+          "$$ClassName" : "TCastleLabel",
+          "ColorPersistent" : {
+            "$$ClassName" : "TCastleColorPersistent",
+            "Alpha" : 1.0,
+            "Blue" : 1.0,
+            "Green" : 1.0,
+            "Red" : 1.0
+          },
+          "FontSize" : 24.0,
+          "Name" : "LabelEnemyName",
+          "Text" : [
+            "ENEMY"
+          ],
+          "TranslationPersistent" : {
+            "$$ClassName" : "TCastleVector2Persistent",
+            "X" : 10.0
+          },
+          "VerticalAnchorParent" : "vpMiddle",
+          "VerticalAnchorSelf" : "vpMiddle"
+        }
+      ]
+    },
+    {
       "$$ClassName" : "TCastleLabel",
       "ColorPersistent" : {
         "$$ClassName" : "TCastleColorPersistent",
-        "Blue" : 1.7647059261798859E-001,
-        "Green" : 6.1176472902297974E-001,
-        "Red" : 9.8823529481887817E-001
+        "Alpha" : 0.9,
+        "Blue" : 0.85,
+        "Green" : 0.85,
+        "Red" : 0.85
       },
-      "FontSize" : 2.0000000000000000E+001,
+      "FontSize" : 18.0,
+      "Name" : "LabelHelp",
+      "Text" : [
+        "Punch: jab, cross, left/right hook, left/right uppercut,",
+        "       left/right body, haymaker",
+        "Defend: block, duck, dodge left, dodge right",
+        "Move: forward, back, left, right, turn left, turn right",
+        "Combo: one two, combo      Cancel: stop"
+      ],
+      "TranslationPersistent" : {
+        "$$ClassName" : "TCastleVector2Persistent",
+        "X" : 20.0,
+        "Y" : -70.0
+      },
+      "VerticalAnchorParent" : "vpTop",
+      "VerticalAnchorSelf" : "vpTop"
+    },
+    {
+      "$$ClassName" : "TCastleLabel",
+      "ColorPersistent" : {
+        "$$ClassName" : "TCastleColorPersistent",
+        "Blue" : 0.176,
+        "Green" : 0.612,
+        "Red" : 0.988
+      },
+      "FontSize" : 20.0,
       "HorizontalAnchorParent" : "hpRight",
       "HorizontalAnchorSelf" : "hpRight",
       "Name" : "LabelFps",
@@ -20,11 +341,68 @@
       ],
       "TranslationPersistent" : {
         "$$ClassName" : "TCastleVector2Persistent",
-        "X" : -2.0000000000000000E+001,
-        "Y" : -2.0000000000000000E+001
+        "X" : -20.0,
+        "Y" : -20.0
       },
       "VerticalAnchorParent" : "vpTop",
       "VerticalAnchorSelf" : "vpTop"
+    },
+    {
+      "$$ClassName" : "TCastleLabel",
+      "ColorPersistent" : {
+        "$$ClassName" : "TCastleColorPersistent",
+        "Alpha" : 1.0,
+        "Blue" : 0.4,
+        "Green" : 1.0,
+        "Red" : 1.0
+      },
+      "FontSize" : 36.0,
+      "HorizontalAnchorParent" : "hpRight",
+      "HorizontalAnchorSelf" : "hpRight",
+      "Name" : "LabelLast",
+      "Text" : [
+        "Say a command"
+      ],
+      "TranslationPersistent" : {
+        "$$ClassName" : "TCastleVector2Persistent",
+        "X" : -20.0,
+        "Y" : -60.0
+      },
+      "VerticalAnchorParent" : "vpTop",
+      "VerticalAnchorSelf" : "vpTop"
+    },
+    {
+      "$$ClassName" : "TCastleLabel",
+      "ColorPersistent" : {
+        "$$ClassName" : "TCastleColorPersistent",
+        "Alpha" : 1.0,
+        "Blue" : 0.1,
+        "Green" : 0.8,
+        "Red" : 1.0
+      },
+      "Exists" : false,
+      "FontSize" : 160.0,
+      "HorizontalAnchorParent" : "hpMiddle",
+      "HorizontalAnchorSelf" : "hpMiddle",
+      "Name" : "LabelKO",
+      "Text" : [
+        "KO!"
+      ],
+      "VerticalAnchorParent" : "vpMiddle",
+      "VerticalAnchorSelf" : "vpMiddle"
+    },
+    {
+      "$$ClassName" : "TCastleEdit",
+      "FontSize" : 30.0,
+      "HorizontalAnchorParent" : "hpMiddle",
+      "HorizontalAnchorSelf" : "hpMiddle",
+      "Name" : "EditCommand",
+      "Placeholder" : "Say or type a command, then Enter",
+      "TranslationPersistent" : {
+        "$$ClassName" : "TCastleVector2Persistent",
+        "Y" : 10.0
+      },
+      "WidthFraction" : 0.6
     }
   ]
 }

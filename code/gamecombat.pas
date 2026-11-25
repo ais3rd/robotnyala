@@ -51,6 +51,15 @@ implementation
 
 uses Math;
 
+{ Own clamp for Single: Math.EnsureRange/Max with mixed literal types can be
+  an ambiguous overload in Delphi. }
+function ClampF(Value, Lo, Hi: Single): Single;
+begin
+  if Value < Lo then Result := Lo else
+  if Value > Hi then Result := Hi else
+    Result := Value;
+end;
+
 procedure FacingVector(FacingDeg: Single; out FX, FZ: Single);
 var
   A: Single;
@@ -98,15 +107,16 @@ begin
       { walk along the step only until we're exactly MinEnemyDistance away }
       A := DX * DX + DZ * DZ;
       B := 2 * (DX * RX + DZ * RZ);
-      Disc := Max(0, B * B - 4 * A * C);
-      T := EnsureRange((-B - Sqrt(Disc)) / (2 * A), 0, 1);
+      Disc := B * B - 4 * A * C;
+      if Disc < 0 then Disc := 0;
+      T := ClampF((-B - Sqrt(Disc)) / (2 * A), 0, 1);
       NX := PX + T * DX;
       NZ := PZ + T * DZ;
     end;
   end;
 
-  PX := EnsureRange(NX, -RoomHalfSize, RoomHalfSize);
-  PZ := EnsureRange(NZ, -RoomHalfSize, RoomHalfSize);
+  PX := ClampF(NX, -RoomHalfSize, RoomHalfSize);
+  PZ := ClampF(NZ, -RoomHalfSize, RoomHalfSize);
 end;
 
 { TEnemyState }
@@ -121,7 +131,8 @@ procedure TEnemyState.Hit(Damage: Integer);
 begin
   if FIsKO or (Damage <= 0) then
     Exit;
-  FHP := Max(0, FHP - Damage);
+  FHP := FHP - Damage;
+  if FHP < 0 then FHP := 0;
   if FHP = 0 then
   begin
     FIsKO := True;
