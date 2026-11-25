@@ -9,7 +9,11 @@ program robotnyala_tests;
 uses
   TinyTest in 'TinyTest.pas',
   GameCommands in '..\code\gamecommands.pas',
-  TestCommands in 'TestCommands.pas';
+  GameRobot in '..\code\gamerobot.pas',
+  GameCombat in '..\code\gamecombat.pas',
+  TestCommands in 'TestCommands.pas',
+  TestRobot in 'TestRobot.pas',
+  TestCombat in 'TestCombat.pas';
 
 begin
   ExitCode := RunAllTests;
