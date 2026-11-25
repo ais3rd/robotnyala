@@ -101,9 +101,8 @@ begin
       PendingSpace := False;
       Result := Result + Lower[I];
     end else
-    if CharInSet(Lower[I], [' ', #9, #10, #13]) then
+      { spaces and punctuation both separate words: 'One-two.' -> 'one two' }
       PendingSpace := True;
-    { anything else is punctuation: dropped }
   end;
 end;
 

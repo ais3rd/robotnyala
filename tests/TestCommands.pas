@@ -33,6 +33,8 @@ begin
   Check(ParseCommand('Left hook.', C) and (C = rcLeftHook), 'Left hook. = left hook');
   Check(ParseCommand('  Stop!  ', C) and (C = rcStop), 'Stop! = stop');
   Check(ParseCommand('One, two.', C) and (C = rcOneTwo), 'One, two. = one two');
+  Check(ParseCommand('One-two.', C) and (C = rcOneTwo), 'One-two. = one two');
+  Check(ParseCommand('Dodge-left!', C) and (C = rcDodgeLeft), 'hyphen separates words');
 end;
 
 procedure TestRightIsStep;

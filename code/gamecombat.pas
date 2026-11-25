@@ -71,8 +71,11 @@ end;
 
 function PunchHits(PX, PZ, FacingDeg, EX, EZ: Single): Boolean;
 var
-  DX, DZ, Dist, FX, FZ: Single;
+  DX, DZ, Dist, FX, FZ, MaxAngle: Single;
 begin
+  { a Single variable, so DegToRad gets one unambiguous overload in Delphi
+    (a Single(...) typecast of an integer would reinterpret its bits) }
+  MaxAngle := HitAngleDeg;
   DX := EX - PX;
   DZ := EZ - PZ;
   Dist := Sqrt(DX * DX + DZ * DZ);
@@ -81,7 +84,7 @@ begin
   if Dist < 1e-4 then
     Exit(True);
   FacingVector(FacingDeg, FX, FZ);
-  Result := (FX * DX + FZ * DZ) / Dist >= Cos(DegToRad(HitAngleDeg)) - 1e-6;
+  Result := (FX * DX + FZ * DZ) / Dist >= Cos(DegToRad(MaxAngle)) - 1e-6;
 end;
 
 procedure ClampedStep(var PX, PZ: Single; DX, DZ, EX, EZ: Single);
