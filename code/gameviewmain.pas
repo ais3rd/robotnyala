@@ -1,9 +1,10 @@
-{ Main view: the first-person robot fight.
+{ Main view: the robot fight, watched from the operator's spot at the ropes.
 
-  The layout (3D room, enemy, fists, labels, command box) is designed in
+  The layout (viewport, both robot sprites, labels, command box) is designed in
   data/gameviewmain.castle-user-interface — open it in the Castle Engine editor.
-  The game rules live in GameCommands, GameRobot and GameCombat (unit-tested);
-  this unit only connects them to what you see. }
+  The game rules live in GameCommands, GameRobot, GameCombat, GameCamera,
+  GameEnemyAnim and GamePlayerAnim (unit-tested); this unit only connects them
+  to what you see. }
 unit GameViewMain;
 
 interface
@@ -12,7 +13,7 @@ uses Classes,
   CastleVectors, CastleComponentSerialize,
   CastleUIControls, CastleControls, CastleKeysMouse,
   CastleViewport, CastleTransform, CastleScene,
-  GameCommands, GameRobot, GameCombat, GameEnemyAnim;
+  GameCommands, GameRobot, GameCombat, GameEnemyAnim, GameCamera, GamePlayerAnim;
 
 type
   TViewMain = class(TCastleView)
@@ -22,31 +23,27 @@ type
     LabelFps: TCastleLabel;
     LabelLast: TCastleLabel;
     LabelKO: TCastleLabel;
+    LabelCamera: TCastleLabel;
     EditCommand: TCastleEdit;
-    FistLeft: TCastleImageControl;
-    FistRight: TCastleImageControl;
     HPBarBack: TCastleRectangleControl;
     HPBar: TCastleRectangleControl;
     MainViewport: TCastleViewport;
     PlayerCamera: TCastleCamera;
     Enemy: TCastleImageTransform;
+    Player: TCastleImageTransform;
   private
     Robot: TRobot;
     EnemyState: TEnemyState;
     EnemyAnim: TEnemyAnimator;
-    { Player on the floor plane; see GameCombat for the meaning of FacingDeg. }
+    { Player robot on the floor plane; see GameCombat for the meaning of FacingDeg. }
     PlayerX, PlayerZ, FacingDeg: Single;
-    { Temporary camera offsets for duck and dodge. }
-    EyeDrop, EyeSide: Single;
+    IdleTime: Single;
     FlashTimeLeft: Single;
+    ThreeQuarter: Boolean;   // Tab: 3/4 camera instead of the operator camera
+    procedure BuildRing;
     procedure SubmitCommand(const Text: string);
     procedure RobotMoveStart(Sender: TObject; Move: TRobotCommand);
-    procedure RobotMoveEnd(Sender: TObject);
-    procedure PoseFist(const Fist: TCastleImageControl; const Side, Pose: string);
-    procedure PoseLeft(const Pose: string);
-    procedure PoseRight(const Pose: string);
     procedure PunchAt(Move: TRobotCommand);
-    procedure UpdateCamera;
   public
     constructor Create(AOwner: TComponent); override;
     procedure Start; override;
@@ -63,10 +60,24 @@ implementation
 uses SysUtils, CastleColors;
 
 const
-  EyeHeight = 1.7;
-  DuckDrop = 0.5;
-  DodgeSide = 0.4;
   HitFlashTime = 0.15;
+  EnemyHeight = 2.3;    // metres; both sheets have the same pixel density,
+  PlayerHeight = 1.71;  // so Glitchpop's 199 px cells are 199/268 of Boxer 07's
+  OperatorHeight = 2.6;
+  ThreeQuarterHeight = 2.2;
+  LookHeight = 1.2;
+
+{ Show one cell of a sprite sheet: Cols frames across, 8 view directions down
+  (row 0 at the top of the PNG). Size and Pivot refer to the whole sheet, so the
+  pivot goes to the middle of one cell; texture Y=0 is the bottom of the image. }
+procedure ShowCell(const T: TCastleImageTransform; Col, Cols, Row: Integer; CellHeight: Single);
+begin
+  if T.ImageHeight = 0 then Exit; // image failed to load: nothing to size
+  T.Size := Vector2(CellHeight * 8 * T.ImageWidth / T.ImageHeight, CellHeight * 8);
+  T.RepeatImage := Vector2(1 / Cols, 1 / 8);
+  T.Pivot := Vector2(0.5 / Cols, 0.5 / 8);
+  T.Shift := Vector2(Col / Cols, (7 - Row) / 8);
+end;
 
 { TViewMain ----------------------------------------------------------------- }
 
@@ -76,33 +87,71 @@ begin
   DesignUrl := 'castle-data:/gameviewmain.castle-user-interface';
 end;
 
+{ Ring: dark arena floor, 4 corner posts (pink = Glitchpop's corner, olive = Boxer 07's),
+  3 ropes per side at 0.5 / 0.9 / 1.3 m. Ropes at +-5 m, movement stays within +-4.5 m. }
+procedure TViewMain.BuildRing;
+
+  procedure AddBox(const Size, Pos: TVector3; const Color: TCastleColor);
+  var
+    B: TCastleBox;
+  begin
+    B := TCastleBox.Create(FreeAtStop);
+    B.Size := Size;
+    B.Translation := Pos;
+    B.Color := Color;
+    MainViewport.Items.Add(B);
+  end;
+
+const
+  RopeHeights: array [0..2] of Single = (0.5, 0.9, 1.3);
+var
+  Arena: TCastlePlane;
+  SX, SZ, I: Integer;
+  PostColor: TCastleColor;
+begin
+  Arena := TCastlePlane.Create(FreeAtStop);
+  Arena.Size := Vector2(2 * ArenaHalfSize + 4, 2 * ArenaHalfSize + 4);
+  Arena.Translation := Vector3(0, -0.01, 0);
+  Arena.Color := Vector4(0.08, 0.08, 0.1, 1);
+  MainViewport.Items.Add(Arena);
+
+  for SX := -1 to 1 do
+    for SZ := -1 to 1 do
+      if (SX <> 0) and (SZ <> 0) then
+      begin
+        if (SX > 0) and (SZ > 0) then PostColor := Vector4(1, 0.45, 0.7, 1) else
+        if (SX < 0) and (SZ < 0) then PostColor := Vector4(0.4, 0.46, 0.26, 1) else
+          PostColor := Vector4(0.9, 0.9, 0.9, 1);
+        AddBox(Vector3(0.25, 1.5, 0.25), Vector3(SX * 5, 0.75, SZ * 5), PostColor);
+      end;
+
+  for I := 0 to High(RopeHeights) do
+  begin
+    AddBox(Vector3(10, 0.05, 0.05), Vector3(0, RopeHeights[I], -5), Vector4(0.85, 0.85, 0.85, 1));
+    AddBox(Vector3(10, 0.05, 0.05), Vector3(0, RopeHeights[I], 5), Vector4(0.85, 0.85, 0.85, 1));
+    AddBox(Vector3(0.05, 0.05, 10), Vector3(-5, RopeHeights[I], 0), Vector4(0.85, 0.85, 0.85, 1));
+    AddBox(Vector3(0.05, 0.05, 10), Vector3(5, RopeHeights[I], 0), Vector4(0.85, 0.85, 0.85, 1));
+  end;
+end;
+
 procedure TViewMain.Start;
 begin
   inherited;
   Robot := TRobot.Create;
   Robot.OnMoveStart := {$ifdef FPC}@{$endif}RobotMoveStart;
-  Robot.OnMoveEnd := {$ifdef FPC}@{$endif}RobotMoveEnd;
   EnemyState := TEnemyState.Create;
   EnemyAnim := TEnemyAnimator.Create;
-  { the enemy image is a sprite sheet: show one frame-wide slice of it.
-    Size and Pivot refer to the whole sheet, so the pivot moves to the middle
-    of the first frame to keep the enemy centred on its position. }
-  Enemy.RepeatImage := Vector2(1 / EnemyFrameCount, 1);
-  Enemy.Pivot := Vector2(0.5 / EnemyFrameCount, 0.5);
 
   PlayerX := 0;
   PlayerZ := 0;
   FacingDeg := 0;
-  EyeDrop := 0;
-  EyeSide := 0;
+  IdleTime := 0;
   FlashTimeLeft := 0;
-
-  PoseLeft('idle');
-  PoseRight('idle');
+  ThreeQuarter := False;
+  BuildRing;
 
   { all keys go to the command box (Wispr Flow types or pastes there) }
   Container.ForceCaptureInput := EditCommand;
-  UpdateCamera;
 end;
 
 procedure TViewMain.Stop;
@@ -113,24 +162,6 @@ begin
   FreeAndNil(EnemyState);
   FreeAndNil(EnemyAnim);
   inherited;
-end;
-
-{ Each pose is a full-screen image of one arm, rendered from the player's eyes
-  by art/player_glitchpop.html: fist_<side>_<pose>.png
-  Poses: idle, punch, body, hook, up, block. }
-procedure TViewMain.PoseFist(const Fist: TCastleImageControl; const Side, Pose: string);
-begin
-  Fist.Url := 'castle-data:/images/fist_' + Side + '_' + Pose + '.png';
-end;
-
-procedure TViewMain.PoseLeft(const Pose: string);
-begin
-  PoseFist(FistLeft, 'left', Pose);
-end;
-
-procedure TViewMain.PoseRight(const Pose: string);
-begin
-  PoseFist(FistRight, 'right', Pose);
 end;
 
 procedure TViewMain.PunchAt(Move: TRobotCommand);
@@ -152,27 +183,11 @@ procedure TViewMain.RobotMoveStart(Sender: TObject; Move: TRobotCommand);
 var
   FX, FZ: Single;
 begin
-  { fists }
-  case Move of
-    rcJab:           begin PoseLeft('punch'); PoseRight('idle'); end;
-    rcLeftBody:      begin PoseLeft('body');  PoseRight('idle'); end;
-    rcLeftHook:      begin PoseLeft('hook');  PoseRight('idle'); end;
-    rcLeftUppercut:  begin PoseLeft('up');    PoseRight('idle'); end;
-    rcCross:         begin PoseLeft('idle');  PoseRight('punch'); end;
-    rcRightBody:     begin PoseLeft('idle');  PoseRight('body'); end;
-    rcRightHook,
-    rcHaymaker:      begin PoseLeft('idle');  PoseRight('hook'); end;
-    rcRightUppercut: begin PoseLeft('idle');  PoseRight('up'); end;
-    rcBlock:         begin PoseLeft('block'); PoseRight('block'); end;
-  else
-    PoseLeft('idle');
-    PoseRight('idle');
-  end;
-
   if MoveDamage(Move) > 0 then
     PunchAt(Move);
 
-  { body and camera. Right of the facing direction (FX, FZ) is (-FZ, FX). }
+  { Right of the facing direction (FX, FZ) is (-FZ, FX). Duck and dodge are only
+    shown by the sprite now (no first-person camera to move). }
   FacingVector(FacingDeg, FX, FZ);
   case Move of
     rcForward:   ClampedStep(PlayerX, PlayerZ,  FX * StepSize,  FZ * StepSize, Enemy.Translation.X, Enemy.Translation.Z);
@@ -181,30 +196,8 @@ begin
     rcStepRight: ClampedStep(PlayerX, PlayerZ, -FZ * StepSize,  FX * StepSize, Enemy.Translation.X, Enemy.Translation.Z);
     rcTurnLeft:  FacingDeg := FacingDeg + TurnStepDeg;
     rcTurnRight: FacingDeg := FacingDeg - TurnStepDeg;
-    rcDuck:      EyeDrop := DuckDrop;
-    rcDodgeLeft: EyeSide := -DodgeSide;
-    rcDodgeRight: EyeSide := DodgeSide;
   else ;
   end;
-end;
-
-procedure TViewMain.RobotMoveEnd(Sender: TObject);
-begin
-  EyeDrop := 0;
-  EyeSide := 0;
-  PoseLeft('idle');
-  PoseRight('idle');
-end;
-
-procedure TViewMain.UpdateCamera;
-var
-  FX, FZ: Single;
-begin
-  FacingVector(FacingDeg, FX, FZ);
-  PlayerCamera.SetView(
-    Vector3(PlayerX - FZ * EyeSide, EyeHeight - EyeDrop, PlayerZ + FX * EyeSide),
-    Vector3(FX, 0, FZ),
-    Vector3(0, 1, 0));
 end;
 
 procedure TViewMain.SubmitCommand(const Text: string);
@@ -228,6 +221,9 @@ begin
 end;
 
 procedure TViewMain.Update(const SecondsPassed: Single; var HandleInput: Boolean);
+var
+  EX, EZ, CamX, CamZ, CamY: Single;
+  CamPos: TVector3;
 begin
   inherited;
   LabelFps.Caption := 'FPS: ' + Container.Fps.ToString;
@@ -235,7 +231,30 @@ begin
   Robot.Update(SecondsPassed);
   EnemyState.Update(SecondsPassed);
   EnemyAnim.Update(SecondsPassed, EnemyState.IsKO);
-  Enemy.Shift := Vector2(EnemyAnim.Frame / EnemyFrameCount, 0);
+  IdleTime := IdleTime + SecondsPassed;
+
+  EX := Enemy.Translation.X;
+  EZ := Enemy.Translation.Z;
+  if ThreeQuarter then
+  begin
+    ThreeQuarterCamera(PlayerX, PlayerZ, FacingDeg, EX, EZ, CamX, CamZ);
+    CamY := ThreeQuarterHeight;
+  end else
+  begin
+    OperatorCamera(PlayerX, PlayerZ, FacingDeg, CamX, CamZ);
+    CamY := OperatorHeight;
+  end;
+  CamPos := Vector3(CamX, CamY, CamZ);
+  PlayerCamera.SetView(CamPos,
+    (Vector3((PlayerX + EX) / 2, LookHeight, (PlayerZ + EZ) / 2) - CamPos).Normalize,
+    Vector3(0, 1, 0));
+
+  Player.Translation := Vector3(PlayerX, PlayerHeight / 2, PlayerZ);
+  ShowCell(Player, PlayerFrame(Robot.HasCurrent, Robot.Current, Robot.Elapsed, IdleTime),
+    PlayerFrameCount, SpriteDirection(PlayerX, PlayerZ, FacingDeg, CamX, CamZ), PlayerHeight);
+  { Boxer 07 always squares up to Glitchpop }
+  ShowCell(Enemy, EnemyAnim.Frame, EnemyFrameCount,
+    SpriteDirection(EX, EZ, FacingToward(EX, EZ, PlayerX, PlayerZ), CamX, CamZ), EnemyHeight);
 
   if FlashTimeLeft > 0 then
     FlashTimeLeft := FlashTimeLeft - SecondsPassed;
@@ -246,8 +265,6 @@ begin
 
   HPBar.Width := HPBarBack.Width * EnemyState.HP / MaxHP;
   LabelKO.Exists := EnemyState.IsKO;
-
-  UpdateCamera;
 end;
 
 function TViewMain.Press(const Event: TInputPressRelease): Boolean;
@@ -255,11 +272,20 @@ begin
   Result := inherited;
   if Result then Exit; // allow the ancestor to handle keys
 
-  { The command box doesn't handle Enter, so it reaches us: submit. }
+  { The command box doesn't handle Enter or Tab, so they reach us. }
   if Event.IsKey(keyEnter) then
   begin
     SubmitCommand(EditCommand.Text);
     EditCommand.Text := '';
+    Exit(true);
+  end;
+  if Event.IsKey(keyTab) then
+  begin
+    ThreeQuarter := not ThreeQuarter;
+    if ThreeQuarter then
+      LabelCamera.Caption := 'Camera: 3/4 (Tab)'
+    else
+      LabelCamera.Caption := 'Camera: operator (Tab)';
     Exit(true);
   end;
 end;

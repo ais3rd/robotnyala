@@ -1,7 +1,8 @@
 # Robot Nyala
 
-A first-person, Doom-style robot boxing prototype made with [Castle Game Engine](https://castle-engine.io/).
-You are the robot. Speak (or type) boxing commands; the robot carries them out against an enemy that stands still.
+A robot boxing prototype made with [Castle Game Engine](https://castle-engine.io/), drawn with Doom-style 8-direction sprites.
+You are the operator at the ropes, behind your robot Glitchpop. Speak (or type) boxing commands; Glitchpop carries
+them out against Boxer 07, which stands its ground. Press **Tab** to switch between the operator camera and a 3/4 view.
 
 Voice works through any dictation tool that types into the focused window, such as Wispr Flow:
 click the game window, dictate a command, press Enter.
@@ -27,13 +28,15 @@ The enemy starts 2 m away, out of reach: say `forward` twice first.
 - `code/gamerobot.pas`: one move at a time, timings, combos, stop
 - `code/gamecombat.pas`: reach, enemy HP and KO, movement limits
 - `code/gameenemyanim.pas`: which enemy sprite-sheet frame to show (idle, hit, KO)
-- `code/gameviewmain.pas`: connects the rules to the screen
-- `data/gameviewmain.castle-user-interface`: the room, enemy, fists and labels (open it in the Castle Engine editor)
-- `data/images/`: sprites, rendered from the models in `art/`
+- `code/gameplayeranim.pas`: which Glitchpop sprite-sheet frame to show (idle and every move)
+- `code/gamecamera.pas`: operator / 3/4 cameras and which of the 8 sprite directions to show
+- `code/gameviewmain.pas`: connects the rules to the screen and builds the ring
+- `data/gameviewmain.castle-user-interface`: viewport, both robot sprites and labels (open it in the Castle Engine editor)
+- `data/images/`: sprite sheets (rows = 8 view directions, columns = frames), rendered from the models in `art/`
 - `art/`: three.js model pages; run `node art/server.js`, open `http://localhost:8765/enemy_boxer07.html?export`
-  (enemy sprite sheet) or `player_glitchpop.html?fp&export` (first-person arms) to re-render into `data/images/`
+  or `player_glitchpop.html?export` to re-render a sheet into `data/images/`
 
-The three rule units use no Castle Game Engine units, so they are tested on their own.
+The rule units use no Castle Game Engine units, so they are tested on their own.
 
 ## Building
 
