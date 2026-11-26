@@ -10,6 +10,7 @@ interface
 const
   RailHalfSize = 5.8;          // operator walks a rail just outside the ropes (ropes at 5 m)
   OperatorMinDistance = 2.5;
+  OperatorBackBias = 0.35;     // how far toward its own end the operator stands (0 = level with the robot)
   ArenaHalfSize = 8.0;
   ThreeQuarterDistance = 5.0;
 
@@ -17,7 +18,8 @@ const
 function SpriteDirection(RobotX, RobotZ, RobotFacingDeg, CamX, CamZ: Single): Integer;
 { Facing (degrees, 0..360) that looks from one point toward another. }
 function FacingToward(FromX, FromZ, ToX, ToZ: Single): Single;
-{ Behind the robot's back, on the rail outside the ropes (at least OperatorMinDistance away). }
+{ Ringside, like the film's operators: on the rail outside the ropes at the robot's right side,
+  a little toward its own end (at least OperatorMinDistance away). }
 procedure OperatorCamera(PX, PZ, FacingDeg: Single; out CX, CZ: Single);
 { Diagonal behind-right of the robot, looking at the midpoint of both robots. }
 procedure ThreeQuarterCamera(PX, PZ, FacingDeg, EX, EZ: Single; out CX, CZ: Single);
@@ -67,8 +69,12 @@ var
   FX, FZ, DX, DZ, T, TZ: Single;
 begin
   FacingVector(FacingDeg, FX, FZ);
-  DX := -FX;
-  DZ := -FZ;
+  { robot's right side (-FZ, FX), leaning OperatorBackBias toward its own end (-F) }
+  DX := -FZ - FX * OperatorBackBias;
+  DZ := FX - FZ * OperatorBackBias;
+  T := Sqrt(DX * DX + DZ * DZ);
+  DX := DX / T;
+  DZ := DZ / T;
   T := RailT(PX, DX);
   TZ := RailT(PZ, DZ);
   if TZ < T then T := TZ;

@@ -30,14 +30,15 @@ begin
   CheckNear(FacingToward(0, 0, -1, 0), 90, 'toward -X is 90 (left)');
 end;
 
-procedure TestOperatorBehind;
+{ operator stands at ringside beside the robot (its right side), a little toward its own end }
+procedure TestOperatorRingside;
 var
   X, Z: Single;
 begin
   OperatorCamera(0, 0, 0, X, Z);
-  CheckNear(X, 0, 'behind, x'); CheckNear(Z, 5.8, 'behind, on the rail');
+  CheckNear(X, 5.8, 'facing -Z: on the +X ring side'); CheckNear(Z, 2.03, 'a bit toward its own end');
   OperatorCamera(0, 0, 90, X, Z);
-  CheckNear(X, 5.8, 'turned left: rail on +X'); CheckNear(Z, 0, 'turned left, z');
+  CheckNear(X, 2.03, 'turned left, x'); CheckNear(Z, -5.8, 'turned left: on the -Z ring side');
 end;
 
 procedure TestOperatorDiagonal;
@@ -45,17 +46,17 @@ var
   X, Z: Single;
 begin
   OperatorCamera(0, 0, 45, X, Z);
-  CheckNear(X, 5.8, 'diagonal reaches the rail corner, x');
-  CheckNear(Z, 5.8, 'diagonal reaches the rail corner, z');
+  CheckNear(X, 5.8, 'facing a corner: still on the rail, x');
+  CheckNear(Z, -2.792, 'facing a corner, z');
 end;
 
 procedure TestOperatorMinDistance;
 var
   X, Z: Single;
 begin
-  OperatorCamera(0, 4.5, 0, X, Z);
-  CheckNear(X, 0, 'backed to the ropes, x');
-  CheckNear(Z, 7.0, 'backed to the ropes: at least 2.5 m back');
+  OperatorCamera(4.5, 0, 0, X, Z);
+  CheckNear(X, 6.860, 'robot at the ropes: at least 2.5 m away, x');
+  CheckNear(Z, 0.826, 'robot at the ropes, z');
 end;
 
 procedure TestThreeQuarter;
@@ -71,7 +72,7 @@ initialization
   RegisterTest('Camera.TestDirectionBasics', TestDirectionBasics);
   RegisterTest('Camera.TestDirectionWraps', TestDirectionWraps);
   RegisterTest('Camera.TestFacingToward', TestFacingToward);
-  RegisterTest('Camera.TestOperatorBehind', TestOperatorBehind);
+  RegisterTest('Camera.TestOperatorRingside', TestOperatorRingside);
   RegisterTest('Camera.TestOperatorDiagonal', TestOperatorDiagonal);
   RegisterTest('Camera.TestOperatorMinDistance', TestOperatorMinDistance);
   RegisterTest('Camera.TestThreeQuarter', TestThreeQuarter);

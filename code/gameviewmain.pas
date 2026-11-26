@@ -63,9 +63,10 @@ const
   HitFlashTime = 0.15;
   EnemyHeight = 2.3;    // metres; both sheets have the same pixel density,
   PlayerHeight = 1.71;  // so Glitchpop's 199 px cells are 199/268 of Boxer 07's
-  OperatorHeight = 2.6;
+  OperatorHeight = 1.5;       // a person on the arena floor...
+  OperatorLookHeight = 1.7;   // ...looking slightly up at the robots
   ThreeQuarterHeight = 2.2;
-  LookHeight = 1.2;
+  ThreeQuarterLookHeight = 1.2;
 
 { Show one cell of a sprite sheet: Cols frames across, 8 view directions down
   (row 0 at the top of the PNG). Size and Pivot refer to the whole sheet, so the
@@ -222,7 +223,7 @@ end;
 
 procedure TViewMain.Update(const SecondsPassed: Single; var HandleInput: Boolean);
 var
-  EX, EZ, CamX, CamZ, CamY: Single;
+  EX, EZ, CamX, CamZ, CamY, LookY: Single;
   CamPos: TVector3;
 begin
   inherited;
@@ -239,14 +240,16 @@ begin
   begin
     ThreeQuarterCamera(PlayerX, PlayerZ, FacingDeg, EX, EZ, CamX, CamZ);
     CamY := ThreeQuarterHeight;
+    LookY := ThreeQuarterLookHeight;
   end else
   begin
     OperatorCamera(PlayerX, PlayerZ, FacingDeg, CamX, CamZ);
     CamY := OperatorHeight;
+    LookY := OperatorLookHeight;
   end;
   CamPos := Vector3(CamX, CamY, CamZ);
   PlayerCamera.SetView(CamPos,
-    (Vector3((PlayerX + EX) / 2, LookHeight, (PlayerZ + EZ) / 2) - CamPos).Normalize,
+    (Vector3((PlayerX + EX) / 2, LookY, (PlayerZ + EZ) / 2) - CamPos).Normalize,
     Vector3(0, 1, 0));
 
   Player.Translation := Vector3(PlayerX, PlayerHeight / 2, PlayerZ);
