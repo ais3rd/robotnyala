@@ -31,6 +31,8 @@ type
     { A timed move is playing or a combo still has moves to play.
       Holding block is not busy. }
     function Busy: Boolean;
+    { Seconds into the current timed move; 0 when idle or blocking. }
+    function Elapsed: Single;
     property HasCurrent: Boolean read FHasCurrent;
     property Current: TRobotCommand read FCurrent;
     { Fired for each single move, including each part of a combo. }
@@ -104,6 +106,14 @@ end;
 function TRobot.Busy: Boolean;
 begin
   Result := (FHasCurrent and (FCurrent <> rcBlock)) or (Length(FQueue) > 0);
+end;
+
+function TRobot.Elapsed: Single;
+begin
+  if FHasCurrent and (FCurrent <> rcBlock) then
+    Result := MoveDuration(FCurrent) - FTimeLeft
+  else
+    Result := 0;
 end;
 
 procedure TRobot.Command(Cmd: TRobotCommand);

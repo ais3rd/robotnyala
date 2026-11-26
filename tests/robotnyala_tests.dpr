@@ -13,11 +13,13 @@ uses
   GameCombat in '..\code\gamecombat.pas',
   GameEnemyAnim in '..\code\gameenemyanim.pas',
   GameCamera in '..\code\gamecamera.pas',
+  GamePlayerAnim in '..\code\gameplayeranim.pas',
   TestCommands in 'TestCommands.pas',
   TestRobot in 'TestRobot.pas',
   TestCombat in 'TestCombat.pas',
   TestEnemyAnim in 'TestEnemyAnim.pas',
-  TestCamera in 'TestCamera.pas';
+  TestCamera in 'TestCamera.pas',
+  TestPlayerAnim in 'TestPlayerAnim.pas';
 
 begin
   ExitCode := RunAllTests;
