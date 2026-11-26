@@ -38,12 +38,10 @@ type
     { Temporary camera offsets for duck and dodge. }
     EyeDrop, EyeSide: Single;
     FlashTimeLeft: Single;
-    FistLeftBase, FistRightBase: TVector2;
     procedure SubmitCommand(const Text: string);
     procedure RobotMoveStart(Sender: TObject; Move: TRobotCommand);
     procedure RobotMoveEnd(Sender: TObject);
-    procedure PoseFist(const Fist: TCastleImageControl; const Side, Pose: string;
-      const Base: TVector2; const ShiftTowardCenter, ShiftUp: Single);
+    procedure PoseFist(const Fist: TCastleImageControl; const Side, Pose: string);
     procedure PoseLeft(const Pose: string);
     procedure PoseRight(const Pose: string);
     procedure PunchAt(Move: TRobotCommand);
@@ -92,9 +90,6 @@ begin
   EyeSide := 0;
   FlashTimeLeft := 0;
 
-  { remember where the fists sit in the design, punches move them from there }
-  FistLeftBase := FistLeft.Translation;
-  FistRightBase := FistRight.Translation;
   PoseLeft('idle');
   PoseRight('idle');
 
@@ -112,34 +107,22 @@ begin
   inherited;
 end;
 
-procedure TViewMain.PoseFist(const Fist: TCastleImageControl; const Side, Pose: string;
-  const Base: TVector2; const ShiftTowardCenter, ShiftUp: Single);
-var
-  Dir: Single;
+{ Each pose is a full-screen image of one arm, rendered from the player's eyes
+  by art/player_glitchpop.html: fist_<side>_<pose>.png
+  Poses: idle, punch, body, hook, up, block. }
+procedure TViewMain.PoseFist(const Fist: TCastleImageControl; const Side, Pose: string);
 begin
   Fist.Url := 'castle-data:/images/fist_' + Side + '_' + Pose + '.png';
-  if Side = 'left' then Dir := 1 else Dir := -1;
-  Fist.Translation := Vector2(Base.X + Dir * ShiftTowardCenter, Base.Y + ShiftUp);
 end;
 
 procedure TViewMain.PoseLeft(const Pose: string);
 begin
-  if Pose = 'punch' then PoseFist(FistLeft, 'left', Pose, FistLeftBase, 180, 60) else
-  if Pose = 'body'  then PoseFist(FistLeft, 'left', 'punch', FistLeftBase, 160, -20) else
-  if Pose = 'hook'  then PoseFist(FistLeft, 'left', Pose, FistLeftBase, 260, 40) else
-  if Pose = 'up'    then PoseFist(FistLeft, 'left', Pose, FistLeftBase, 150, 90) else
-  if Pose = 'block' then PoseFist(FistLeft, 'left', Pose, FistLeftBase, 170, 40) else
-                         PoseFist(FistLeft, 'left', 'idle', FistLeftBase, 0, 0);
+  PoseFist(FistLeft, 'left', Pose);
 end;
 
 procedure TViewMain.PoseRight(const Pose: string);
 begin
-  if Pose = 'punch' then PoseFist(FistRight, 'right', Pose, FistRightBase, 180, 60) else
-  if Pose = 'body'  then PoseFist(FistRight, 'right', 'punch', FistRightBase, 160, -20) else
-  if Pose = 'hook'  then PoseFist(FistRight, 'right', Pose, FistRightBase, 260, 40) else
-  if Pose = 'up'    then PoseFist(FistRight, 'right', Pose, FistRightBase, 150, 90) else
-  if Pose = 'block' then PoseFist(FistRight, 'right', Pose, FistRightBase, 170, 40) else
-                         PoseFist(FistRight, 'right', 'idle', FistRightBase, 0, 0);
+  PoseFist(FistRight, 'right', Pose);
 end;
 
 procedure TViewMain.PunchAt(Move: TRobotCommand);

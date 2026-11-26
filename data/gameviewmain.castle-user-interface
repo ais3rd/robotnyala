@@ -189,12 +189,13 @@
             "Name" : "Enemy",
             "SizePersistent" : {
               "$$ClassName" : "TCastleVector2Persistent",
-              "X" : 1.0,
-              "Y" : 2.0
+              "X" : 1.394,
+              "Y" : 2.3
             },
+            "SmoothScaling" : false,
             "TranslationPersistent" : {
               "$$ClassName" : "TCastleVector3Persistent",
-              "Y" : 1.0,
+              "Y" : 1.15,
               "Z" : -2.0
             },
             "Url" : "castle-data:/images/enemy.png",
@@ -214,15 +215,10 @@
         "$$ClassName" : "TCastleImagePersistent",
         "Url" : "castle-data:/images/fist_left_idle.png"
       },
-      "Height" : 400.0,
+      "FullSize" : true,
       "Name" : "FistLeft",
-      "Stretch" : true,
-      "TranslationPersistent" : {
-        "$$ClassName" : "TCastleVector2Persistent",
-        "X" : 150.0,
-        "Y" : 40.0
-      },
-      "Width" : 400.0
+      "SmoothScaling" : false,
+      "Stretch" : true
     },
     {
       "$$ClassName" : "TCastleImageControl",
@@ -230,17 +226,10 @@
         "$$ClassName" : "TCastleImagePersistent",
         "Url" : "castle-data:/images/fist_right_idle.png"
       },
-      "Height" : 400.0,
-      "HorizontalAnchorParent" : "hpRight",
-      "HorizontalAnchorSelf" : "hpRight",
+      "FullSize" : true,
       "Name" : "FistRight",
-      "Stretch" : true,
-      "TranslationPersistent" : {
-        "$$ClassName" : "TCastleVector2Persistent",
-        "X" : -150.0,
-        "Y" : 40.0
-      },
-      "Width" : 400.0
+      "SmoothScaling" : false,
+      "Stretch" : true
     },
     {
       "$$ClassName" : "TCastleRectangleControl",

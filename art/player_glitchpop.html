@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glitchpop</title>
+<!-- Player robot "Glitchpop": small, zippy, candy-coloured, a bit glitchy.
+     Open via art/server.js:
+       http://localhost:8765/player_glitchpop.html          full-body showcase (drag to rotate)
+       http://localhost:8765/player_glitchpop.html?fp       first-person arm poses preview
+       http://localhost:8765/player_glitchpop.html?fp&export  render data/images/fist_{left,right}_<pose>.png -->
+<style>
+  html, body { margin: 0; height: 100%; background: #0b0d10; overflow: hidden; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas { image-rendering: pixelated; image-rendering: crisp-edges; cursor: grab; display: block; }
+  #info { position: fixed; left: 8px; top: 6px; font: 11px monospace; color: #6b7480; pointer-events: none; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+</head>
+<body>
+<div id="info"></div>
+<script type="module">
+import * as THREE from 'three';
+import { savePNG } from './export.js';
+
+const PARAMS = new URLSearchParams(location.search);
+const FP = PARAMS.has('fp');
+const EXPORT = PARAMS.has('export');
+const W = FP ? 480 : 270, H = FP ? 270 : 480, TS = 64;
+
+/* ---------- pixel texture painting (same style as Boxer 07) ---------- */
+const BAYER = [0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5].map(v => v / 16);
+let seed = 11;
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+function makeTex(draw, w = TS, h = TS) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+  draw(g, w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter;
+  t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const px = (g, x, y, c, w = 1, h = 1) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+function shade(g, pal, f, x0 = 0, y0 = 0, w = TS, h = TS) {
+  for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+    const v = f(x, y) * (pal.length - 1) + BAYER[(y & 3) * 4 + (x & 3)] - 0.5;
+    px(g, x, y, pal[Math.max(0, Math.min(pal.length - 1, Math.round(v)))]);
+  }
+}
+function bevel(g, dark, light) {
+  px(g, 0, 0, dark, TS, 1); px(g, 0, TS - 1, dark, TS, 1);
+  px(g, 0, 0, dark, 1, TS); px(g, TS - 1, 0, dark, 1, TS);
+  px(g, 1, 1, light, TS - 2, 1); px(g, 1, 1, light, 1, TS - 2);
+}
+const lightFall = (x, y) => 0.95 - (x + y) / 140;
+
+const MINT  = ['#173029','#22493d','#2f6b59','#448f78','#63b79b','#93dcc0'];
+const PINK  = ['#3a1124','#661d3d','#9b2c5e','#d04a86','#f57bb0','#ffb4d4'];
+const CHOC  = ['#1c100b','#2e1b13','#44291d','#5c3826','#764a33','#925f42'];
+const CREAM = '#f3e6c4', CREAM_D = '#c9b98f';
+const CYAN = '#3df2ff', MAGENTA = '#ff36d2';
+
+// sprinkles: little 2-pixel candy bits
+function sprinkles(g, n, cols) {
+  for (let i = 0; i < n; i++) {
+    const x = 4 + rnd() * 55 | 0, y = 4 + rnd() * 55 | 0, c = cols[i % cols.length];
+    if (rnd() < 0.5) px(g, x, y, c, 2, 1); else px(g, x, y, c, 1, 2);
+  }
+}
+// glitch: a few pixels pushed sideways in cyan / magenta
+function glitchBits(g, n) {
+  for (let i = 0; i < n; i++) {
+    const y = 4 + rnd() * 56 | 0, x = 2 + rnd() * 50 | 0, w = 3 + rnd() * 8 | 0;
+    px(g, x, y, i & 1 ? CYAN : MAGENTA, w, 1);
+  }
+}
+
+const T = {
+  mint: makeTex(g => {
+    shade(g, MINT, (x, y) => lightFall(x, y) * 0.85 + 0.1);
+    sprinkles(g, 14, [PINK[4], CREAM, CYAN, PINK[5]]);
+    bevel(g, MINT[0], MINT[5]);
+  }),
+  choc: makeTex(g => {
+    shade(g, CHOC, (x, y) => lightFall(x, y) * 0.8 + 0.1);
+    for (let y = 16; y < TS; y += 16) { px(g, 2, y, CHOC[0], 60, 1); px(g, 2, y + 1, CHOC[5], 60, 1); }  // chocolate-bar grooves
+    for (let x = 16; x < TS; x += 16) { px(g, x, 2, CHOC[0], 1, 60); px(g, x + 1, 2, CHOC[5], 1, 60); }
+    bevel(g, CHOC[0], CHOC[5]);
+  }),
+  stripe: makeTex(g => {   // candy-cane stripes
+    shade(g, PINK, (x, y) => lightFall(x, y) * 0.7 + 0.25);
+    for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++)
+      if (((x + y) & 15) < 6) px(g, x, y, (x + y) % 16 === 0 ? CREAM_D : CREAM);
+    bevel(g, PINK[0], PINK[5]);
+  }),
+  wrapper: makeTex(g => {  // sweet-wrapper skirt: pink with a cream zigzag
+    shade(g, PINK, (x, y) => 0.85 - y / 90);
+    for (let x = 0; x < TS; x++) { const y = 26 + Math.abs((x % 12) - 6); px(g, x, y, CREAM, 1, 5); px(g, x, y + 5, PINK[1]); }
+    sprinkles(g, 8, [MINT[5], CREAM, CYAN]);
+    bevel(g, PINK[0], PINK[5]);
+  }),
+  mitt: makeTex(g => {     // fist sides
+    shade(g, PINK, (x, y) => lightFall(x, y) * 0.75 + 0.2);
+    px(g, 0, 50, MINT[3], TS, 10); px(g, 0, 50, MINT[5], TS, 1); px(g, 0, 59, MINT[1], TS, 1);   // mint cuff
+    bevel(g, PINK[0], PINK[5]);
+  }),
+  knuckle: makeTex(g => {  // fist front (punching face)
+    shade(g, PINK, (x, y) => lightFall(x, y) * 0.75 + 0.2);
+    for (const x of [16, 31, 46]) { px(g, x, 8, PINK[0], 2, 48); px(g, x + 2, 8, PINK[5], 1, 48); }
+    bevel(g, PINK[0], PINK[5]);
+  }),
+  mittBack: makeTex(g => { // back of the hand: what you see in first person
+    shade(g, PINK, (x, y) => lightFall(x, y) * 0.75 + 0.2);
+    // candy swirl decal
+    for (let a = 0; a < 26; a += 0.12) {
+      const r = a * 0.9, x = 32 + Math.cos(a) * r, y = 30 + Math.sin(a) * r;
+      if (r < 18) px(g, x | 0, y | 0, CREAM, 2, 2);
+    }
+    px(g, 0, 54, MINT[3], TS, 8); px(g, 0, 54, MINT[5], TS, 1);
+    bevel(g, PINK[0], PINK[5]);
+  }),
+};
+function faceTex(glitch) {
+  return makeTex(g => {
+    shade(g, ['#0c0d14','#141625','#1d2036','#272b48'], (x, y) => 0.7 - y / 120);
+    // big expressive pixel eyes
+    for (const [ex, dx] of [[13, 0], [37, 0]]) {
+      const o = glitch ? 3 : 0;
+      if (glitch) { px(g, ex - o, 18, MAGENTA, 14, 14); px(g, ex + o, 18, CYAN, 14, 14); }
+      px(g, ex + dx, 18, '#d8fbff', 14, 14);
+      px(g, ex + dx + 2, 20, CYAN, 10, 10);
+      px(g, ex + dx + 7, 21, '#ffffff', 3, 3);      // sparkle
+    }
+    // mischievous grin
+    px(g, 22, 44, PINK[4], 20, 2); px(g, 20, 42, PINK[4], 2, 2); px(g, 42, 42, PINK[4], 2, 2); px(g, 36, 46, PINK[3], 4, 2);
+    // cheek pixels
+    px(g, 8, 38, PINK[3], 4, 2); px(g, 52, 38, PINK[3], 4, 2);
+    if (glitch) glitchBits(g, 10);
+    bevel(g, '#05060a', MINT[4]);
+  });
+}
+T.face = faceTex(false);
+T.faceGlitch = faceTex(true);
+T.bg = makeTex(g => {
+  shade(g, ['#120a14','#1c1020','#26172c','#321f39','#3f2847'], (x, y) => y < 50 ? 0.15 + y / 70 : 0.5 - (y - 50) / 40);
+  px(g, 0, 50, '#5a3f66', 64, 1);
+}, 32, 64);
+
+const lam = (map, extra = {}) => new THREE.MeshLambertMaterial({ map, flatShading: true, ...extra });
+const M = {
+  mint: lam(T.mint), choc: lam(T.choc), stripe: lam(T.stripe), wrapper: lam(T.wrapper),
+  mitt: lam(T.mitt), knuckle: lam(T.knuckle), mittBack: lam(T.mittBack),
+  face: lam(T.face), cream: new THREE.MeshLambertMaterial({ color: CREAM, flatShading: true }),
+  pinkBall: new THREE.MeshLambertMaterial({ color: PINK[4], flatShading: true, emissive: 0x401028 }),
+  mintBall: new THREE.MeshLambertMaterial({ color: MINT[5], flatShading: true, emissive: 0x0a3022 }),
+};
+// box face order: +x, -x, +y, -y, +z(front), -z
+const faces = (base, front, top = base) => [base, base, top, base, front, base];
+// fist boxes are aligned along +y = punching direction: knuckles on +y, back of hand on -y... in
+// first person we look at the back of the hand, which faces the camera = the box's -y side
+const fistMats = [M.mitt, M.mitt, M.knuckle, M.mitt, M.mittBack, M.mitt];
+
+/* ---------- build helpers ---------- */
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const group = (parent, x = 0, y = 0, z = 0) => { const g = new THREE.Group(); g.position.set(x, y, z); parent.add(g); return g; };
+function mesh(parent, geo, mat, x = 0, y = 0, z = 0) { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); parent.add(m); return m; }
+const box = (p, w, h, d, mat, x, y, z) => mesh(p, new THREE.BoxGeometry(w, h, d), mat, x, y, z);
+// a box stretched from point A to point B (its local +y runs A -> B); roll turns it around that axis
+function limb(parent, A, B, w, d, mat, roll = 0, extend = 0) {
+  const dir = B.clone().sub(A), len = dir.length() + extend;
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, len, d), mat);
+  m.position.copy(A).add(B).multiplyScalar(0.5);
+  m.quaternion.setFromUnitVectors(V(0, 1, 0), dir.normalize());
+  m.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), roll));
+  parent.add(m); return m;
+}
+// two-bone IK: elbow position for shoulder S, hand T, bone lengths a, b, bending toward pole
+function elbow(S, T, a, b, pole) {
+  const toT = T.clone().sub(S); let d = toT.length();
+  const u = toT.normalize(); d = Math.min(d, a + b - 1e-3);
+  const cosA = (a * a + d * d - b * b) / (2 * a * d), sinA = Math.sqrt(Math.max(0, 1 - cosA * cosA));
+  const p = pole.clone().sub(u.clone().multiplyScalar(pole.dot(u))).normalize();
+  return S.clone().add(u.multiplyScalar(a * cosA)).add(p.multiplyScalar(a * sinA));
+}
+// whole arm: upper (mint), forearm (candy stripe), fist (pink mitt), from shoulder S toward hand T
+function arm(parent, S, T, pole, sz, roll = 0) {
+  const a = sz.a, b = sz.b;
+  const toT = T.clone().sub(S); if (toT.length() > a + b - 1e-3) T = S.clone().add(toT.setLength(a + b - 1e-3));
+  const E = elbow(S, T, a, b, pole);
+  limb(parent, S, E, sz.up, sz.up, M.mint, roll);
+  mesh(parent, new THREE.IcosahedronGeometry(sz.up * 0.7, 0), M.choc, E.x, E.y, E.z);   // elbow joint
+  limb(parent, E, T, sz.fore, sz.fore, M.stripe, roll);
+  const dir = T.clone().sub(E).normalize();
+  const C = T.clone().add(dir.clone().multiplyScalar(sz.fist * 0.45));
+  limb(parent, C.clone().sub(dir.clone().multiplyScalar(sz.fist / 2)), C.clone().add(dir.clone().multiplyScalar(sz.fist / 2)),
+       sz.fist * 1.05, sz.fist, fistMats, roll);
+}
+
+/* ---------- renderer / scene ---------- */
+const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: EXPORT || FP, preserveDrawingBuffer: EXPORT });
+renderer.setPixelRatio(1);
+renderer.setSize(W, H, false);
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.add(new THREE.HemisphereLight(0xffe8f4, 0x2a1830, 0.95));
+const key = new THREE.DirectionalLight(0xfff4e6, 2.1); key.position.set(-4, 7, 6); scene.add(key);
+const rim = new THREE.DirectionalLight(0x52f0ff, 1.2); rim.position.set(5, 3, -5); scene.add(rim);
+
+function fit() {
+  const k = Math.min(innerWidth / W, innerHeight / H);
+  const s = k >= 1 ? Math.floor(k) : k;
+  renderer.domElement.style.width = W * s + 'px';
+  renderer.domElement.style.height = H * s + 'px';
+}
+addEventListener('resize', fit); fit();
+const info = document.getElementById('info');
+
+if (!FP) {
+  /* ================= full-body showcase ================= */
+  scene.background = T.bg;
+  const camera = new THREE.PerspectiveCamera(34, W / H, 0.1, 100);
+  camera.position.set(0, 2.1, 9.0); camera.lookAt(0, 1.75, 0);
+
+  const root = group(scene);
+  const body = group(root);
+  // legs: chocolate thighs, mint shins, pink knee caps, chunky boots
+  for (const s of [-1, 1]) {
+    const hip = V(0.25 * s, 1.25, 0), knee = V(0.32 * s, 0.68, 0.14), ankle = V(0.3 * s, 0.2, -0.02);
+    limb(body, hip, knee, 0.28, 0.3, M.choc);
+    limb(body, knee, ankle, 0.26, 0.28, M.mint);
+    box(body, 0.22, 0.2, 0.12, M.pinkBall, knee.x, knee.y, knee.z + 0.14);
+    box(body, 0.4, 0.26, 0.6, M.choc, ankle.x, 0.13, 0.08);
+    box(body, 0.42, 0.06, 0.62, M.cream, ankle.x, 0.03, 0.08);
+  }
+  // wrapper skirt + chocolate core + mint hoodie shell
+  mesh(body, new THREE.CylinderGeometry(0.5, 0.78, 0.5, 8), M.wrapper, 0, 1.25, 0);
+  const torso = mesh(body, new THREE.CylinderGeometry(0.78, 0.58, 0.95, 4).rotateY(Math.PI / 4), M.mint, 0, 1.95, 0);
+  torso.scale.z = 0.66;
+  box(body, 0.62, 0.22, 0.08, M.wrapper, 0, 1.7, 0.36);                       // hoodie pocket
+  for (const s of [-1, 1]) box(body, 0.04, 0.34, 0.04, M.cream, 0.14 * s, 2.18, 0.4);  // drawstrings
+  box(body, 0.9, 0.42, 0.32, M.mint, 0, 2.5, -0.34);                          // bunched hood at the back
+  box(body, 0.3, 0.16, 0.3, M.choc, 0, 2.47, 0);                              // neck
+
+  // head with visor face and two "pigtail" antennae with candy tips
+  const head = group(body, 0, 2.86, 0.04);
+  const headBox = box(head, 0.8, 0.66, 0.66, faces(M.mint, M.face), 0, 0, 0);
+  const balls = [];
+  for (const s of [-1, 1]) {
+    const base = V(0.34 * s, 0.26, -0.1), tip = V(0.62 * s, 0.6, -0.16);
+    limb(head, base, tip, 0.06, 0.06, M.choc);
+    balls.push(mesh(head, new THREE.IcosahedronGeometry(0.14, 0), s < 0 ? M.pinkBall : M.mintBall, tip.x, tip.y, tip.z));
+    box(head, 0.1, 0.05, 0.1, M.cream, base.x * 1.15, base.y + 0.05, base.z);
+  }
+
+  // arms in a bouncy guard (s = +1: her left, lead hand)
+  const armsGroup = group(body);
+  const SZ = { a: 0.5, b: 0.5, up: 0.2, fore: 0.24, fist: 0.36 };
+  function buildArms(t) {
+    armsGroup.clear();
+    for (const s of [-1, 1]) {
+      const lead = s === 1, bob = Math.sin(t * 4 + (lead ? 0.6 : 2.0)) * 0.04;
+      const S = V(0.5 * s, 2.28, 0.0);
+      const T = lead ? V(0.36, 2.32 + bob, 0.55) : V(-0.36, 2.18 + bob, 0.42);
+      arm(armsGroup, S, T, V(s, -1, -0.6), SZ);
+      mesh(armsGroup, new THREE.IcosahedronGeometry(0.2, 0), M.choc, S.x, S.y, S.z);    // shoulder ball
+    }
+  }
+
+  root.updateMatrixWorld(true);
+  let yaw = +(PARAMS.get('yaw') ?? -0.35), drag = null;
+  renderer.domElement.addEventListener('pointerdown', e => { drag = e.clientX; renderer.domElement.setPointerCapture(e.pointerId); });
+  addEventListener('pointermove', e => { if (drag !== null) { yaw += (e.clientX - drag) * 0.01; drag = e.clientX; } });
+  addEventListener('pointerup', () => drag = null);
+  info.textContent = `Glitchpop · ${W}×${H} · drag to rotate`;
+
+  const clock = new THREE.Clock();
+  renderer.setAnimationLoop(() => {
+    const t = clock.getElapsedTime();
+    root.rotation.y = yaw;
+    body.position.y = Math.abs(Math.sin(t * 4)) * 0.06;              // light on her feet
+    buildArms(t);
+    balls.forEach((b, i) => b.position.y = 0.6 + Math.sin(t * 8 + i * 2) * 0.03);
+    // glitch: every ~1.7 s the face skips for a few frames
+    const g = (t % 1.7) < 0.12;
+    headBox.material[4] = g ? lam(T.faceGlitch) : M.face;
+    head.position.x = g ? (Math.random() - 0.5) * 0.08 : 0;
+    renderer.render(scene, camera);
+  });
+} else {
+  /* ================= first-person arms (left arm; right = mirror image) ================= */
+  // camera at the eyes looking down -Z; robot's left side is -X
+  // wide lens + slim arms held low, so the arms frame the enemy instead of hiding it (Doom-style)
+  const camera = new THREE.PerspectiveCamera(72, W / H, 0.05, 20);
+  const SZ = { a: 0.55, b: 0.55, up: 0.13, fore: 0.155, fist: 0.23 };
+  const S = V(-0.42, -0.62, 0.05);
+  const POSES = {
+    idle:  { T: V(-0.36, -0.36, -0.8),  pole: V(-1, -1, 0.3) },
+    punch: { T: V(-0.08, -0.17, -1.2),  pole: V(-1, -1, 0.3) },
+    body:  { T: V(-0.12, -0.38, -1.0),  pole: V(-1, -0.6, 0.3) },
+    hook:  { T: V(-0.03, -0.2, -0.85),  pole: V(-1, 0.25, 0.2), roll: Math.PI / 2 },
+    up:    { T: V(-0.13, -0.12, -0.78), pole: V(-0.2, -1, 0.4) },
+    block: { T: V(-0.15, -0.14, -0.62), pole: V(-0.4, -1, 0) },
+  };
+  const armRoot = group(scene);
+  function show(name) {
+    armRoot.clear();
+    const p = POSES[name];
+    arm(armRoot, S, p.T, p.pole, SZ, p.roll || 0);
+    renderer.render(scene, camera);
+  }
+  if (EXPORT) {
+    const done = {};
+    for (const name of Object.keys(POSES)) {
+      show(name);
+      done[`fist_left_${name}.png`] = await savePNG(renderer.domElement, `fist_left_${name}.png`, { crop: false });
+      done[`fist_right_${name}.png`] = await savePNG(renderer.domElement, `fist_right_${name}.png`, { crop: false, flip: true });
+    }
+    info.textContent = 'saved ' + Object.keys(done).length + ' images';
+    window.EXPORT_DONE = done;
+  } else {
+    const pose = PARAMS.get('pose') || 'idle';
+    scene.background = T.bg;
+    show(pose);
+    info.textContent = `first-person: ${pose} (?fp&pose=${Object.keys(POSES).join('|')})`;
+    window.showPose = show;
+  }
+}
+</script>
+</body>
+</html>

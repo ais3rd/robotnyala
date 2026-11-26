@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Robot Boxer 07</title>
+<!-- Enemy model. Open via art/server.js: http://localhost:8765/enemy_boxer07.html
+     Add ?export to render data/images/enemy.png (transparent, cropped). -->
+<style>
+  html, body { margin: 0; height: 100%; background: #0b0d10; overflow: hidden; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas { image-rendering: pixelated; image-rendering: crisp-edges; cursor: grab; display: block; }
+  canvas:active { cursor: grabbing; }
+  #info { position: fixed; left: 8px; top: 6px; font: 11px monospace; color: #6b7480; pointer-events: none; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+</head>
+<body>
+<div id="info"></div>
+<script type="module">
+import * as THREE from 'three';
+import { savePNG } from './export.js';
+
+const PARAMS = new URLSearchParams(location.search);
+const EXPORT = PARAMS.has('export');
+
+const W = 270, H = 480, TS = 64;
+
+/* ---------- pixel texture painting ---------- */
+const BAYER = [0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5].map(v => v / 16);
+let seed = 7;
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+
+function makeTex(draw, w = TS, h = TS) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+  draw(g, w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter;
+  t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const px = (g, x, y, c, w = 1, h = 1) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+// ordered-dither a value field f(x,y) in 0..1 onto a palette
+function shade(g, pal, f, x0 = 0, y0 = 0, w = TS, h = TS) {
+  for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+    const v = f(x, y) * (pal.length - 1) + BAYER[(y & 3) * 4 + (x & 3)] - 0.5;
+    px(g, x, y, pal[Math.max(0, Math.min(pal.length - 1, Math.round(v)))]);
+  }
+}
+function bevel(g, dark, light) {
+  px(g, 0, 0, dark, TS, 1); px(g, 0, TS - 1, dark, TS, 1);
+  px(g, 0, 0, dark, 1, TS); px(g, TS - 1, 0, dark, 1, TS);
+  px(g, 1, 1, light, TS - 2, 1); px(g, 1, 1, light, 1, TS - 2);
+}
+function rivets(g, d, l) {
+  for (const [x, y] of [[5,5],[57,5],[5,57],[57,57]]) { px(g, x, y, d, 2, 2); px(g, x, y, l); }
+}
+function scratches(g, col, n) {
+  for (let i = 0; i < n; i++) {
+    let x = 4 + rnd() * 56 | 0, y = 4 + rnd() * 56 | 0; const len = 2 + rnd() * 5 | 0;
+    for (let k = 0; k < len; k++) px(g, x + k, y + (k >> 1), col);
+  }
+}
+
+const OLIVE = ['#252b1b','#373f27','#4c5734','#646f42','#7e8a52','#9aa565'];
+const STEEL = ['#15171b','#202329','#2d3139','#3e434d','#555b66','#707785'];
+const CREAM = '#ddd2a6', CREAM_D = '#a99d75';
+const GLOW  = ['#7a2a06','#d4520e','#ff8a24','#ffc25c','#fff0b8'];
+
+const lightFall = (x, y) => 0.95 - (x + y) / 140;
+
+function armorBase(g, pal = OLIVE) {
+  shade(g, pal, (x, y) => lightFall(x, y) * 0.85 + 0.05);
+  scratches(g, pal[pal.length - 1], 6);
+  bevel(g, pal[0], pal[pal.length - 1]);
+  rivets(g, pal[0], pal[pal.length - 1]);
+}
+
+const T = {
+  armor: makeTex(g => armorBase(g)),
+  hazard: makeTex(g => {
+    armorBase(g);
+    for (let y = 20; y < 44; y++) for (let x = 2; x < 62; x++)
+      if (((x + y) & 15) < 8) px(g, x, y, (y < 23 || y > 40) ? CREAM_D : CREAM);
+    px(g, 2, 19, OLIVE[0], 60, 1); px(g, 2, 44, OLIVE[0], 60, 1);
+  }),
+  steel: makeTex(g => {
+    shade(g, STEEL, (x, y) => 0.75 - y / 110);
+    for (let y = 3; y < TS; y += 8) { px(g, 0, y, STEEL[0], TS, 1); px(g, 0, y + 1, STEEL[4], TS, 1); }
+    bevel(g, STEEL[0], STEEL[3]);
+  }),
+  fist: makeTex(g => {
+    shade(g, OLIVE, (x, y) => lightFall(x, y) * 0.75 + 0.1);
+    for (const x of [16, 31, 46]) { px(g, x, 10, OLIVE[0], 2, 44); px(g, x + 2, 10, OLIVE[5], 1, 44); }
+    bevel(g, OLIVE[0], OLIVE[5]);
+  }),
+  face: makeTex(g => {
+    shade(g, STEEL, (x, y) => 0.55 - y / 160);
+    px(g, 4, 10, OLIVE[3], 56, 6); px(g, 4, 10, OLIVE[5], 56, 1); px(g, 4, 16, STEEL[0], 56, 1);
+    for (let x = 14; x < 52; x += 6) { px(g, x, 44, STEEL[0], 3, 14); px(g, x + 3, 44, STEEL[4], 1, 14); }
+    bevel(g, STEEL[0], STEEL[4]);
+  }),
+};
+// chest plate: stencilled "07" + heat vents (vents also feed the emissive map)
+const DIGITS = { '0': ['111','101','101','101','111'], '7': ['111','001','010','010','010'] };
+function stencil(g, str, ox, oy, s, col, sh) {
+  [...str].forEach((ch, i) => DIGITS[ch].forEach((row, r) => [...row].forEach((b, c) => {
+    if (b === '1') { px(g, ox + i * 4 * s + c * s + 1, oy + r * s + 1, sh, s, s); px(g, ox + i * 4 * s + c * s, oy + r * s, col, s, s); }
+  })));
+}
+const vents = (g, cols) => { for (let i = 0; i < 3; i++) { const y = 40 + i * 7; px(g, 10, y, cols[0], 44, 4); px(g, 12, y + 1, cols[1], 40, 2); } };
+T.chest = makeTex(g => { armorBase(g); stencil(g, '07', 16, 8, 4, CREAM, OLIVE[0]); vents(g, [STEEL[0], GLOW[2]]); });
+T.chestGlow = makeTex(g => { px(g, 0, 0, '#000', TS, TS); vents(g, ['#000', GLOW[3]]); });
+T.bg = makeTex(g => {
+  shade(g, ['#07090c','#0d1116','#141a21','#1c242d','#26303b'], (x, y) => y < 50 ? 0.15 + y / 70 : 0.5 - (y - 50) / 40);
+  px(g, 0, 50, '#3a4654', 64, 1);
+}, 32, 64);
+
+/* ---------- renderer / scene ---------- */
+const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: EXPORT, preserveDrawingBuffer: EXPORT });
+renderer.setPixelRatio(1);
+renderer.setSize(W, H, false);
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = EXPORT ? null : T.bg;
+const camera = new THREE.PerspectiveCamera(34, W / H, 0.1, 100);
+camera.position.set(0, 2.9, 10.5);
+camera.lookAt(0, 2.5, 0);
+
+scene.add(new THREE.HemisphereLight(0xcfd8e6, 0x2a2018, 0.9));
+const key = new THREE.DirectionalLight(0xfff1dc, 2.2); key.position.set(-4, 7, 6); scene.add(key);
+const rim = new THREE.DirectionalLight(0xff8a3a, 1.4); rim.position.set(5, 3, -5); scene.add(rim);
+const ventGlow = new THREE.PointLight(0xff7a1a, 1.5, 1.6, 2); scene.add(ventGlow);
+
+const lam = (map, extra = {}) => new THREE.MeshLambertMaterial({ map, flatShading: true, ...extra });
+const M = {
+  armor: lam(T.armor), hazard: lam(T.hazard), steel: lam(T.steel),
+  steel2: lam(T.steel, { side: THREE.DoubleSide }), fist: lam(T.fist), face: lam(T.face),
+  chest: lam(T.chest, { emissiveMap: T.chestGlow, emissive: 0xffffff }),
+  lens: new THREE.MeshBasicMaterial({ color: 0xffa040 }),
+};
+// box face order: +x, -x, +y, -y, +z(front), -z
+const faces = (base, front, top = base) => [base, base, top, base, front, base];
+
+/* ---------- build helpers ---------- */
+const group = (parent, x = 0, y = 0, z = 0) => { const g = new THREE.Group(); g.position.set(x, y, z); parent.add(g); return g; };
+function mesh(parent, geo, mat, x = 0, y = 0, z = 0) {
+  const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); parent.add(m); return m;
+}
+const box = (p, w, h, d, mat, x, y, z) => mesh(p, new THREE.BoxGeometry(w, h, d), mat, x, y, z);
+
+/* ---------- robot ---------- */
+const root = group(scene);
+const hips = group(root, 0, 2.2, 0);
+box(hips, 1.0, 0.4, 0.62, M.armor, 0, 0, 0);
+box(hips, 0.72, 0.42, 0.5, M.steel, 0, 0.36, 0);
+
+const chest = group(hips, 0, 0.55, 0);
+// 4-sided frustum = tapered box (wide shoulders, narrow waist) for the same 12 + 4 tris
+const torso = mesh(chest, new THREE.CylinderGeometry(1.25, 0.8, 1.4, 4).rotateY(Math.PI / 4), M.armor, 0, 0.8, 0);
+torso.scale.z = 0.62;
+const plate = box(chest, 0.9, 0.62, 0.1, M.chest, 0, 1.0, 0.5); plate.rotation.x = 0.14;
+ventGlow.position.set(0, 0.85, 0.9); chest.add(ventGlow);
+for (const s of [-1, 1]) {
+  const ex = mesh(chest, new THREE.CylinderGeometry(0.11, 0.13, 0.8, 5, 1, true), M.steel2, 0.42 * s, 1.55, -0.42);
+  ex.rotation.x = -0.25;
+}
+box(chest, 0.42, 0.3, 0.36, M.steel, 0, 1.62, 0);
+
+const head = group(chest, 0, 1.74, 0.05);
+box(head, 0.74, 0.62, 0.7, faces(M.armor, M.face), 0, 0.32, 0);
+const lens = mesh(head, new THREE.CylinderGeometry(0.15, 0.15, 0.1, 5), M.lens, 0, 0.38, 0.36);
+lens.rotation.x = Math.PI / 2;
+
+const arms = {};
+for (const s of [-1, 1]) {
+  const pad = box(chest, 0.78, 0.6, 0.86, M.hazard, 1.05 * s, 1.45, 0); pad.rotation.z = -0.16 * s;
+  const sh = group(chest, 0.95 * s, 1.2, 0);
+  box(sh, 0.36, 0.85, 0.38, M.steel, 0, -0.42, 0);
+  const el = group(sh, 0, -0.85, 0);
+  box(el, 0.44, 0.82, 0.48, M.armor, 0, 0.4, 0);
+  mesh(el, new THREE.CylinderGeometry(0.06, 0.06, 0.6, 4, 1, true), M.steel2, 0.27 * s, 0.4, -0.05);
+  const wr = group(el, 0, 0.82, 0);
+  box(wr, 0.64, 0.6, 0.64, faces(M.fist, M.fist, M.fist), 0, 0.2, 0.04);
+  arms[s] = { sh, el, wr };
+}
+
+const legs = {};
+for (const s of [-1, 1]) {
+  const hip = group(hips, 0.34 * s, -0.15, 0);
+  box(hip, 0.5, 0.9, 0.54, M.armor, 0, -0.45, 0);
+  const kn = group(hip, 0, -0.9, 0);
+  box(kn, 0.44, 0.95, 0.5, M.hazard, 0, -0.47, 0);
+  const an = group(kn, 0, -0.95, 0);
+  box(an, 0.56, 0.28, 0.86, M.steel, 0, -0.14, 0.12);
+  legs[s] = { hip, kn, an };
+}
+
+/* ---------- pose: orthodox boxing guard ---------- */
+// s = +1 is the robot's left (lead) side, s = -1 its right (rear) side
+function pose() {
+  chest.rotation.set(0.08, -0.18, 0);
+  head.rotation.set(0.12, 0.12, 0);
+  for (const s of [-1, 1]) {
+    const lead = s === 1, a = arms[s];
+    a.sh.rotation.set(lead ? -1.4 : -0.95, 0, (lead ? 0.6 : 0.55) * s);
+    a.el.rotation.set(lead ? 1.25 : 0.9, 0, (lead ? 1.1 : 0.6) * s);
+    a.wr.rotation.set(-0.3, 0, (lead ? -0.9 : -0.6) * s);
+    const l = legs[s];
+    l.hip.rotation.set(lead ? -0.45 : 0.1, 0, 0.1 * s);
+    l.kn.rotation.set(lead ? 0.6 : 0.4, 0, -0.06 * s);
+    l.an.rotation.set(lead ? -0.15 : -0.5, 0, -0.04 * s);
+  }
+  // put the feet on the ground
+  root.updateMatrixWorld(true);
+  const minY = new THREE.Box3().setFromObject(root).min.y;
+  root.position.y -= minY;
+}
+pose();
+
+let tris = 0;
+root.traverse(o => { if (o.isMesh) { const g = o.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3; } });
+document.getElementById('info').textContent = `${tris} tris · ${W}×${H} · drag to rotate`;
+
+/* ---------- display scaling + interaction ---------- */
+function fit() {
+  const k = Math.min(innerWidth / W, innerHeight / H);
+  const s = k >= 1 ? Math.floor(k) : k;
+  renderer.domElement.style.width = W * s + 'px';
+  renderer.domElement.style.height = H * s + 'px';
+}
+addEventListener('resize', fit); fit();
+
+let yaw = +(PARAMS.get('yaw') ?? -0.35), drag = null;
+
+/* ---------- export: one still frame, facing the player (the sprite is a billboard) ---------- */
+if (EXPORT) {
+  root.rotation.y = yaw;
+  renderer.render(scene, camera);
+  const size = await savePNG(renderer.domElement, 'enemy.png');
+  document.getElementById('info').textContent = `saved enemy.png ${size[0]}×${size[1]}`;
+  window.EXPORT_DONE = { 'enemy.png': size };
+} else {
+
+renderer.domElement.addEventListener('pointerdown', e => { drag = e.clientX; renderer.domElement.setPointerCapture(e.pointerId); });
+addEventListener('pointermove', e => { if (drag !== null) { yaw += (e.clientX - drag) * 0.01; drag = e.clientX; } });
+addEventListener('pointerup', () => drag = null);
+
+const base = { cy: chest.position.y, l: arms[1].sh.rotation.x, r: arms[-1].sh.rotation.x };
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const t = clock.getElapsedTime();
+  root.rotation.y = yaw;
+  chest.position.y = base.cy + Math.sin(t * 3.2) * 0.025;            // breathing bounce
+  chest.rotation.z = Math.sin(t * 1.6) * 0.03;                       // weight shift
+  arms[1].sh.rotation.x = base.l + Math.sin(t * 3.2 + 0.6) * 0.05;   // lead hand bob
+  arms[-1].sh.rotation.x = base.r + Math.sin(t * 3.2 + 2.0) * 0.04;
+  M.lens.color.setHSL(0.08, 1, 0.58 + Math.sin(t * 6) * 0.04);      // lens pulse
+  ventGlow.intensity = 1.3 + Math.sin(t * 4.3) * 0.35;
+  renderer.render(scene, camera);
+});
+}
+</script>
+</body>
+</html>
