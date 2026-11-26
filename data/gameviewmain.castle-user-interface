@@ -187,9 +187,18 @@
           {
             "$$ClassName" : "TCastleImageTransform",
             "Name" : "Enemy",
+            "PivotPersistent" : {
+              "$$ClassName" : "TCastleVector2Persistent",
+              "X" : 0.0555556,
+              "Y" : 0.5
+            },
+            "RepeatImagePersistent" : {
+              "$$ClassName" : "TCastleVector2Persistent",
+              "X" : 0.1111111
+            },
             "SizePersistent" : {
               "$$ClassName" : "TCastleVector2Persistent",
-              "X" : 1.394,
+              "X" : 14.763,
               "Y" : 2.3
             },
             "SmoothScaling" : false,
@@ -198,7 +207,7 @@
               "Y" : 1.15,
               "Z" : -2.0
             },
-            "Url" : "castle-data:/images/enemy.png",
+            "Url" : "castle-data:/images/enemy_sheet.png",
             "$Behaviors" : [
               {
                 "$$ClassName" : "TCastleBillboard",

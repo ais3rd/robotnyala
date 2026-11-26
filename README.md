@@ -26,9 +26,12 @@ The enemy starts 2 m away, out of reach: say `forward` twice first.
 - `code/gamecommands.pas`: the command list and text parsing
 - `code/gamerobot.pas`: one move at a time, timings, combos, stop
 - `code/gamecombat.pas`: reach, enemy HP and KO, movement limits
+- `code/gameenemyanim.pas`: which enemy sprite-sheet frame to show (idle, hit, KO)
 - `code/gameviewmain.pas`: connects the rules to the screen
 - `data/gameviewmain.castle-user-interface`: the room, enemy, fists and labels (open it in the Castle Engine editor)
-- `data/images/`: placeholder art
+- `data/images/`: sprites, rendered from the models in `art/`
+- `art/`: three.js model pages; run `node art/server.js`, open `http://localhost:8765/enemy_boxer07.html?export`
+  (enemy sprite sheet) or `player_glitchpop.html?fp&export` (first-person arms) to re-render into `data/images/`
 
 The three rule units use no Castle Game Engine units, so they are tested on their own.
 

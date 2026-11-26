@@ -11,9 +11,11 @@ uses
   GameCommands in '..\code\gamecommands.pas',
   GameRobot in '..\code\gamerobot.pas',
   GameCombat in '..\code\gamecombat.pas',
+  GameEnemyAnim in '..\code\gameenemyanim.pas',
   TestCommands in 'TestCommands.pas',
   TestRobot in 'TestRobot.pas',
-  TestCombat in 'TestCombat.pas';
+  TestCombat in 'TestCombat.pas',
+  TestEnemyAnim in 'TestEnemyAnim.pas';
 
 begin
   ExitCode := RunAllTests;

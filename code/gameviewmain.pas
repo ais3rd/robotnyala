@@ -12,7 +12,7 @@ uses Classes,
   CastleVectors, CastleComponentSerialize,
   CastleUIControls, CastleControls, CastleKeysMouse,
   CastleViewport, CastleTransform, CastleScene,
-  GameCommands, GameRobot, GameCombat;
+  GameCommands, GameRobot, GameCombat, GameEnemyAnim;
 
 type
   TViewMain = class(TCastleView)
@@ -33,6 +33,7 @@ type
   private
     Robot: TRobot;
     EnemyState: TEnemyState;
+    EnemyAnim: TEnemyAnimator;
     { Player on the floor plane; see GameCombat for the meaning of FacingDeg. }
     PlayerX, PlayerZ, FacingDeg: Single;
     { Temporary camera offsets for duck and dodge. }
@@ -82,6 +83,12 @@ begin
   Robot.OnMoveStart := {$ifdef FPC}@{$endif}RobotMoveStart;
   Robot.OnMoveEnd := {$ifdef FPC}@{$endif}RobotMoveEnd;
   EnemyState := TEnemyState.Create;
+  EnemyAnim := TEnemyAnimator.Create;
+  { the enemy image is a sprite sheet: show one frame-wide slice of it.
+    Size and Pivot refer to the whole sheet, so the pivot moves to the middle
+    of the first frame to keep the enemy centred on its position. }
+  Enemy.RepeatImage := Vector2(1 / EnemyFrameCount, 1);
+  Enemy.Pivot := Vector2(0.5 / EnemyFrameCount, 0.5);
 
   PlayerX := 0;
   PlayerZ := 0;
@@ -104,6 +111,7 @@ begin
     Container.ForceCaptureInput := nil;
   FreeAndNil(Robot);
   FreeAndNil(EnemyState);
+  FreeAndNil(EnemyAnim);
   inherited;
 end;
 
@@ -133,6 +141,7 @@ begin
   if PunchHits(PlayerX, PlayerZ, FacingDeg, Enemy.Translation.X, Enemy.Translation.Z) then
   begin
     EnemyState.Hit(MoveDamage(Move));
+    EnemyAnim.Hit;
     FlashTimeLeft := HitFlashTime;
     LabelLast.Caption := CommandName(Move) + ' - HIT!';
   end else
@@ -225,14 +234,13 @@ begin
 
   Robot.Update(SecondsPassed);
   EnemyState.Update(SecondsPassed);
+  EnemyAnim.Update(SecondsPassed, EnemyState.IsKO);
+  Enemy.Shift := Vector2(EnemyAnim.Frame / EnemyFrameCount, 0);
 
   if FlashTimeLeft > 0 then
     FlashTimeLeft := FlashTimeLeft - SecondsPassed;
   if FlashTimeLeft > 0 then
     Enemy.Color := Vector4(1, 0.35, 0.35, 1)
-  else
-  if EnemyState.IsKO then
-    Enemy.Color := Vector4(0.45, 0.45, 0.45, 1)
   else
     Enemy.Color := White;
 
