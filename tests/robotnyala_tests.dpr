@@ -12,10 +12,12 @@ uses
   GameRobot in '..\code\gamerobot.pas',
   GameCombat in '..\code\gamecombat.pas',
   GameEnemyAnim in '..\code\gameenemyanim.pas',
+  GameCamera in '..\code\gamecamera.pas',
   TestCommands in 'TestCommands.pas',
   TestRobot in 'TestRobot.pas',
   TestCombat in 'TestCombat.pas',
-  TestEnemyAnim in 'TestEnemyAnim.pas';
+  TestEnemyAnim in 'TestEnemyAnim.pas',
+  TestCamera in 'TestCamera.pas';
 
 begin
   ExitCode := RunAllTests;
