@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Arena textures</title>
+<!-- Pixel textures for the ring and the crowd. Open via art/server.js:
+       http://localhost:8765/arena.html          preview
+       http://localhost:8765/arena.html?export   save ring_mat, ring_apron, arena_floor, crowd .png to data/images -->
+<style>
+  body { margin: 0; background: #0b0d10; color: #6b7480; font: 11px monospace; padding: 8px; }
+  canvas { image-rendering: pixelated; margin: 6px; background: #223; vertical-align: top; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+</head>
+<body>
+<div id="info"></div>
+<script type="module">
+import { savePNG } from './export.js';
+
+const BAYER = [0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5].map(v => v / 16);
+let seed = 21;
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const px = (g, x, y, c, w = 1, h = 1) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+function shade(g, pal, f, x0, y0, w, h) {
+  for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+    const v = f(x, y) * (pal.length - 1) + BAYER[(y & 3) * 4 + (x & 3)] - 0.5;
+    px(g, x, y, pal[Math.max(0, Math.min(pal.length - 1, Math.round(v)))]);
+  }
+}
+function canvas(w, h, draw) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'); g.imageSmoothingEnabled = false; draw(g, w, h);
+  c.style.width = w * 2 + 'px'; document.body.appendChild(c); return c;
+}
+// smooth-ish value noise for stains
+const noise = (x, y, s) => (Math.sin(x * 0.11 * s + y * 0.07 * s) + Math.sin(x * 0.05 * s - y * 0.13 * s + 1.7)) / 4 + 0.5;
+
+const CANVAS = ['#2c2e35', '#383b43', '#454852', '#535762', '#626672', '#727683'];
+const RUST = ['#3b1510', '#5c2117', '#7f2f1f', '#a23f27'];
+const STEEL = ['#15171b', '#202329', '#2d3139', '#3e434d', '#555b66', '#707785'];
+const CREAM = '#cfc39a', CREAM_D = '#9c9270';
+const CONCRETE = ['#121316', '#17181c', '#1d1f24', '#24262c'];
+
+/* ring mat: worn canvas, scuffs, rust border, faded gear emblem */
+const mat = canvas(256, 256, (g, W, H) => {
+  shade(g, CANVAS, (x, y) => 0.55 + (noise(x, y, 1) - 0.5) * 0.5 + (rnd() - 0.5) * 0.12, 0, 0, W, H);
+  for (let i = 0; i < 40; i++) {                       // scuffs and boot marks
+    const x = rnd() * W | 0, y = rnd() * H | 0, l = 3 + rnd() * 9 | 0, c = rnd() < 0.5 ? CANVAS[1] : CANVAS[5];
+    for (let k = 0; k < l; k++) px(g, x + k, y + (k * (rnd() < 0.5 ? 0 : 1) >> 1), c);
+  }
+  // faded gear emblem in the middle (dithered so it reads as worn paint)
+  const cx = W / 2, cy = H / 2;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const dx = x - cx, dy = y - cy, r = Math.hypot(dx, dy), a = Math.atan2(dy, dx);
+    const tooth = Math.cos(a * 8) > 0.35 ? 8 : 0;
+    const ring = (r > 30 && r < 36 + tooth) || (r > 14 && r < 18);
+    if (ring && BAYER[(y & 3) * 4 + (x & 3)] < 0.55) px(g, x, y, (x + y) % 7 ? CREAM_D : CREAM);
+  }
+  // rust-red border band with a thin cream inner line (under the ropes)
+  for (let b = 0; b < 12; b++) {
+    shade(g, RUST, (x, y) => 0.6 + (rnd() - 0.5) * 0.4, b, b, W - 2 * b, 1);
+    shade(g, RUST, (x, y) => 0.6 + (rnd() - 0.5) * 0.4, b, H - 1 - b, W - 2 * b, 1);
+    shade(g, RUST, (x, y) => 0.6 + (rnd() - 0.5) * 0.4, b, b, 1, H - 2 * b);
+    shade(g, RUST, (x, y) => 0.6 + (rnd() - 0.5) * 0.4, W - 1 - b, b, 1, H - 2 * b);
+  }
+  g.strokeStyle = CREAM_D; g.lineWidth = 1; g.strokeRect(13.5, 13.5, W - 27, H - 27);
+});
+
+/* apron: steel skirt with a hazard band at the top and rivets */
+const apron = canvas(128, 32, (g, W, H) => {
+  shade(g, STEEL, (x, y) => 0.55 - y / 70 + (rnd() - 0.5) * 0.1, 0, 0, W, H);
+  for (let y = 2; y < 9; y++) for (let x = 0; x < W; x++) px(g, x, y, ((x + y) & 15) < 8 ? '#c9a227' : '#16171a');
+  px(g, 0, 1, STEEL[0], W, 1); px(g, 0, 9, STEEL[0], W, 1); px(g, 0, 10, STEEL[4], W, 1);
+  for (let x = 6; x < W; x += 16) { px(g, x, 20, STEEL[0], 2, 2); px(g, x, 20, STEEL[5]); }
+  for (let x = 0; x < W; x += 32) px(g, x, 11, STEEL[0], 1, H - 11);   // panel seams
+});
+
+/* arena floor: dark concrete tiles */
+const floor = canvas(64, 64, (g, W, H) => {
+  shade(g, CONCRETE, (x, y) => 0.5 + (noise(x, y, 2) - 0.5) * 0.6 + (rnd() - 0.5) * 0.15, 0, 0, W, H);
+  px(g, 0, 0, '#0c0d0f', W, 1); px(g, 0, 0, '#0c0d0f', 1, H);
+});
+
+/* crowd: 2 frames stacked (top = rest, bottom = bob / cheer), one tile of 9 spectators */
+const SKIN = ['#f1c7a2', '#d9a07a', '#b0764f', '#7d5236', '#5a3a27'];
+const HAIR = ['#1b1512', '#3b2618', '#6b4a2a', '#b8892d', '#d9d2c4', '#7a1f1f', '#2a3550'];
+const SHIRT = ['#9b2c2c', '#2c5d9b', '#2f7a4c', '#c9a227', '#6b3a8c', '#d0d0d0', '#2b2b30', '#c96a2a', '#3a8c8c'];
+const people = Array.from({ length: 9 }, () => ({
+  skin: SKIN[rnd() * SKIN.length | 0], hair: HAIR[rnd() * HAIR.length | 0], shirt: SHIRT[rnd() * SHIRT.length | 0],
+  big: rnd() < 0.3, cheer: rnd() < 0.55, sign: rnd() < 0.15, glow: rnd() < 0.2 }));
+function person(g, x, base, p, up) {
+  const w = p.big ? 16 : 13, top = base - (p.big ? 30 : 27) - (up ? 2 : 0);
+  // body (shoulders), darker at the bottom
+  shade(g, [shadeOf(p.shirt, 0.45), shadeOf(p.shirt, 0.7), p.shirt], (xx, yy) => 1 - (yy - top) / 40, x, top + 11, w, base - top - 11);
+  // arms: down at the sides, or thrown up on the cheer frame
+  if (up && p.cheer) {
+    px(g, x - 2, top - 2, p.shirt, 3, 14); px(g, x + w - 1, top - 2, p.shirt, 3, 14);
+    px(g, x - 2, top - 4, p.skin, 3, 3); px(g, x + w - 1, top - 4, p.skin, 3, 3);
+  }
+  // head + hair
+  const hx = x + (w >> 1) - 4;
+  px(g, hx, top + 2, p.skin, 8, 9); px(g, hx - 1, top + 4, p.skin, 10, 5);
+  px(g, hx, top + 1, p.hair, 8, 3); px(g, hx - 1, top + 2, p.hair, 1, 4); px(g, hx + 8, top + 2, p.hair, 1, 4);
+  px(g, hx + 2, top + 6, '#141014'); px(g, hx + 5, top + 6, '#141014');           // eyes
+  if (up) px(g, hx + 3, top + 9, '#3a1414', 2, 1);                             // shouting mouth
+  if (p.sign && up) { px(g, x - 3, top - 12, CREAM, w + 6, 8); px(g, x - 1, top - 10, '#9b2c2c', w + 2, 4); }
+  if (p.glow) px(g, x + w - 3, top + 14, up ? '#e8f6ff' : '#7fa7c9', 2, 3);    // phone light
+}
+function shadeOf(hex, k) {
+  const n = parseInt(hex.slice(1), 16), c = [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.round(v * k));
+  return '#' + c.map(v => v.toString(16).padStart(2, '0')).join('');
+}
+const crowd = canvas(192, 96, (g, W, H) => {
+  for (const [frame, up] of [[0, false], [1, true]]) {
+    const base = frame * 48 + 48;
+    people.forEach((p, i) => person(g, 3 + i * 21, base, p, up && (i % 3 !== 1 || p.cheer)));
+  }
+});
+
+if (new URLSearchParams(location.search).has('export')) {
+  for (const [c, name] of [[mat, 'ring_mat.png'], [apron, 'ring_apron.png'], [floor, 'arena_floor.png'], [crowd, 'crowd.png']])
+    await savePNG(c, name);
+  document.getElementById('info').textContent = 'saved ring_mat, ring_apron, arena_floor, crowd';
+  window.EXPORT_DONE = true;
+}
+</script>
+</body>
+</html>

@@ -31,7 +31,10 @@ type
     PlayerCamera: TCastleCamera;
     Enemy: TCastleImageTransform;
     Player: TCastleImageTransform;
+    Floor: TCastlePlane;
   private
+    CrowdStands: array [0..11] of TCastleImageTransform;
+    CrowdTime, CrowdExcite: Single;   // crowd bob clock; seconds of excited cheering left
     Robot: TRobot;
     EnemyState: TEnemyState;
     EnemyAnim: TEnemyAnimator;
@@ -58,7 +61,7 @@ var
 
 implementation
 
-uses SysUtils, CastleColors;
+uses SysUtils, CastleColors, CastleRenderOptions;
 
 const
   HitFlashTime = 0.15;
@@ -96,9 +99,19 @@ begin
   DesignUrl := 'castle-data:/gameviewmain.castle-user-interface';
 end;
 
-{ Ring: dark arena floor, 4 corner posts (pink = Glitchpop's corner, olive = Boxer 07's),
-  3 ropes per side at 0.5 / 0.9 / 1.3 m. Ropes at +-5 m, movement stays within +-4.5 m. }
+{ Ring: textured mat on a raised platform (apron skirt), concrete arena floor below,
+  4 corner posts (pink = Glitchpop's corner, olive = Boxer 07's), 3 ropes per side at
+  0.5 / 0.9 / 1.3 m, and 3 tiers of crowd on every side. Ropes at +-5 m, movement stays
+  within +-4.5 m. Textures come from art/arena.html. }
 procedure TViewMain.BuildRing;
+
+  procedure Crisp(const P: TCastleAbstractPrimitive; const Url: string; const Scale: TVector2);
+  begin
+    P.Texture := 'castle-data:/images/' + Url;
+    P.TextureScale := Scale;
+    P.Color := White;
+    P.RenderOptions.MagnificationFilter := magNearest;   // pixel art, no blur
+  end;
 
   procedure AddBox(const Size, Pos: TVector3; const Color: TCastleColor);
   var
@@ -113,16 +126,53 @@ procedure TViewMain.BuildRing;
 
 const
   RopeHeights: array [0..2] of Single = (0.5, 0.9, 1.3);
+  PlatformHeight = 0.9;
+  CrowdTileW = 4.8;         // crowd.png: 192 x 48 px per frame
+  CrowdTileH = 1.2;
 var
   Arena: TCastlePlane;
-  SX, SZ, I: Integer;
+  Platform: TCastleBox;
+  Stand: TCastleImageTransform;
+  SX, SZ, I, Side, Tier: Integer;
   PostColor: TCastleColor;
+  D, Tiles: Single;
 begin
+  Crisp(Floor, 'ring_mat.png', Vector2(1, 1));
+  Floor.Size := Vector2(11, 11);   // rust border shows just outside the ropes
+
+  Platform := TCastleBox.Create(FreeAtStop);
+  Platform.Size := Vector3(11, PlatformHeight, 11);
+  Platform.Translation := Vector3(0, -PlatformHeight / 2 - 0.01, 0);
+  Crisp(Platform, 'ring_apron.png', Vector2(3, 1));
+  MainViewport.Items.Add(Platform);
+
   Arena := TCastlePlane.Create(FreeAtStop);
-  Arena.Size := Vector2(2 * ArenaHalfSize + 4, 2 * ArenaHalfSize + 4);
-  Arena.Translation := Vector3(0, -0.01, 0);
-  Arena.Color := Vector4(0.08, 0.08, 0.1, 1);
+  Arena.Size := Vector2(40, 40);
+  Arena.Translation := Vector3(0, -PlatformHeight, 0);
+  Crisp(Arena, 'arena_floor.png', Vector2(20, 20));
   MainViewport.Items.Add(Arena);
+
+  { crowd: 3 rising tiers per side, facing the ring; frames bob in Update }
+  for Side := 0 to 3 do
+    for Tier := 0 to 2 do
+    begin
+      D := 9 + Tier * 1.3;
+      Tiles := Round(2 * D / CrowdTileW);
+      Stand := TCastleImageTransform.Create(FreeAtStop);
+      Stand.Url := 'castle-data:/images/crowd.png';
+      Stand.SmoothScaling := False;
+      Stand.Size := Vector2(CrowdTileW, 2 * CrowdTileH);           // both frames
+      Stand.RepeatImage := Vector2(Tiles, 0.5);                   // one frame, tiled along the side
+      Stand.Pivot := Vector2(Tiles / 2, 0.25);                    // centred (pivot is per tile)
+      Stand.Shift := Vector2(Tier * 0.37 + Side * 0.21, 0.5);
+      Stand.Color := Vector4(0.9 - Tier * 0.12, 0.9 - Tier * 0.12, 0.95 - Tier * 0.1, 1);
+      { side 0 is north (-Z) facing +Z; each next side is turned 90 degrees around the ring }
+      Stand.Rotation := Vector4(0, 1, 0, Side * Pi / 2);
+      Stand.Translation := Vector3(-D * Sin(Side * Pi / 2),
+        -PlatformHeight + 0.35 + Tier * 0.8 + CrowdTileH / 2, -D * Cos(Side * Pi / 2));
+      MainViewport.Items.Add(Stand);
+      CrowdStands[Side * 3 + Tier] := Stand;
+    end;
 
   for SX := -1 to 1 do
     for SZ := -1 to 1 do
@@ -187,6 +237,11 @@ begin
     EnemyState.Hit(MoveDamage(Move));
     EnemyAnim.Hit(Move);
     Feel.Hit(MoveDamage(Move), EnemyState.IsKO);
+    { the crowd goes wild for a moment: longer for streaks, longest for the knockout }
+    if EnemyState.IsKO then
+      CrowdExcite := 4
+    else
+      CrowdExcite := 0.8 + 0.4 * Feel.Streak;
     FlashTimeLeft := HitFlashTime;
     if Feel.Streak >= 2 then
       LabelLast.Caption := CommandName(Move) + ' - HIT! x' + IntToStr(Feel.Streak)
@@ -241,6 +296,7 @@ procedure TViewMain.Update(const SecondsPassed: Single; var HandleInput: Boolean
 var
   EX, EZ, CamX, CamZ, CamY, LookY, GameTime, S: Single;
   CamPos: TVector3;
+  I: Integer;
 begin
   inherited;
   LabelFps.Caption := 'FPS: ' + Container.Fps.ToString;
@@ -287,6 +343,15 @@ begin
     Enemy.Color := Vector4(1, 0.35, 0.35, 1)
   else
     Enemy.Color := White;
+
+  { crowd: slow bob, fast cheering while excited; neighbouring tiers out of step }
+  CrowdExcite := CrowdExcite - SecondsPassed;
+  if CrowdExcite > 0 then
+    CrowdTime := CrowdTime + SecondsPassed * 8
+  else
+    CrowdTime := CrowdTime + SecondsPassed * 2.5;
+  for I := 0 to High(CrowdStands) do
+    CrowdStands[I].Shift := Vector2(CrowdStands[I].Shift.X, 0.5 * ((Trunc(CrowdTime) + I) mod 2));
 
   HPBar.Width := HPBarBack.Width * EnemyState.HP / MaxHP;
   LabelKO.Exists := EnemyState.IsKO;

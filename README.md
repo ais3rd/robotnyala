@@ -35,7 +35,8 @@ The enemy starts 2 m away, out of reach: say `forward` twice first.
 - `data/gameviewmain.castle-user-interface`: viewport, both robot sprites and labels (open it in the Castle Engine editor)
 - `data/images/`: sprite sheets (rows = 8 view directions, columns = frames), rendered from the models in `art/`
 - `art/`: three.js model pages; run `node art/server.js`, open `http://localhost:8765/enemy_boxer07.html?export`
-  or `player_glitchpop.html?export` to re-render a sheet into `data/images/`
+  or `player_glitchpop.html?export` to re-render a sheet into `data/images/`; `arena.html?export` paints the ring mat,
+  apron, arena floor and crowd textures
 
 The rule units use no Castle Game Engine units, so they are tested on their own.
 
