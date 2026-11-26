@@ -83,39 +83,34 @@ const floor = canvas(64, 64, (g, W, H) => {
   px(g, 0, 0, '#0c0d0f', W, 1); px(g, 0, 0, '#0c0d0f', 1, H);
 });
 
-/* crowd: 2 frames stacked (top = rest, bottom = bob / cheer), one tile of 9 spectators */
+/* crowd: one still, dark tile, packed so tight the bodies merge into a mass of heads and
+   shoulders (three overlapping depth rows, back rows smaller and darker). Tiles seamlessly. */
 const SKIN = ['#f1c7a2', '#d9a07a', '#b0764f', '#7d5236', '#5a3a27'];
-const HAIR = ['#1b1512', '#3b2618', '#6b4a2a', '#b8892d', '#d9d2c4', '#7a1f1f', '#2a3550'];
-const SHIRT = ['#9b2c2c', '#2c5d9b', '#2f7a4c', '#c9a227', '#6b3a8c', '#d0d0d0', '#2b2b30', '#c96a2a', '#3a8c8c'];
-const people = Array.from({ length: 9 }, () => ({
-  skin: SKIN[rnd() * SKIN.length | 0], hair: HAIR[rnd() * HAIR.length | 0], shirt: SHIRT[rnd() * SHIRT.length | 0],
-  big: rnd() < 0.3, cheer: rnd() < 0.55, sign: rnd() < 0.15, glow: rnd() < 0.2 }));
-function person(g, x, base, p, up) {
-  const w = p.big ? 16 : 13, top = base - (p.big ? 30 : 27) - (up ? 2 : 0);
-  // body (shoulders), darker at the bottom
-  shade(g, [shadeOf(p.shirt, 0.45), shadeOf(p.shirt, 0.7), p.shirt], (xx, yy) => 1 - (yy - top) / 40, x, top + 11, w, base - top - 11);
-  // arms: down at the sides, or thrown up on the cheer frame
-  if (up && p.cheer) {
-    px(g, x - 2, top - 2, p.shirt, 3, 14); px(g, x + w - 1, top - 2, p.shirt, 3, 14);
-    px(g, x - 2, top - 4, p.skin, 3, 3); px(g, x + w - 1, top - 4, p.skin, 3, 3);
-  }
-  // head + hair
-  const hx = x + (w >> 1) - 4;
-  px(g, hx, top + 2, p.skin, 8, 9); px(g, hx - 1, top + 4, p.skin, 10, 5);
-  px(g, hx, top + 1, p.hair, 8, 3); px(g, hx - 1, top + 2, p.hair, 1, 4); px(g, hx + 8, top + 2, p.hair, 1, 4);
-  px(g, hx + 2, top + 6, '#141014'); px(g, hx + 5, top + 6, '#141014');           // eyes
-  if (up) px(g, hx + 3, top + 9, '#3a1414', 2, 1);                             // shouting mouth
-  if (p.sign && up) { px(g, x - 3, top - 12, CREAM, w + 6, 8); px(g, x - 1, top - 10, '#9b2c2c', w + 2, 4); }
-  if (p.glow) px(g, x + w - 3, top + 14, up ? '#e8f6ff' : '#7fa7c9', 2, 3);    // phone light
-}
+const HAIR = ['#1b1512', '#3b2618', '#6b4a2a', '#b8892d', '#7a1f1f', '#2a3550'];
+const SHIRT = ['#9b2c2c', '#2c5d9b', '#2f7a4c', '#c9a227', '#6b3a8c', '#8a8a8a', '#2b2b30', '#c96a2a', '#3a8c8c'];
 function shadeOf(hex, k) {
   const n = parseInt(hex.slice(1), 16), c = [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.round(v * k));
   return '#' + c.map(v => v.toString(16).padStart(2, '0')).join('');
 }
-const crowd = canvas(192, 96, (g, W, H) => {
-  for (const [frame, up] of [[0, false], [1, true]]) {
-    const base = frame * 48 + 48;
-    people.forEach((p, i) => person(g, 3 + i * 21, base, p, up && (i % 3 !== 1 || p.cheer)));
+// one head-and-shoulders figure; k = brightness (dark arena), s = size
+function person(g, x, base, k, s) {
+  const skin = shadeOf(SKIN[rnd() * SKIN.length | 0], k), hair = shadeOf(HAIR[rnd() * HAIR.length | 0], k);
+  const shirt = SHIRT[rnd() * SHIRT.length | 0];
+  const w = Math.round((12 + rnd() * 4) * s), head = Math.round(7 * s), top = base - Math.round((20 + rnd() * 4) * s);
+  shade(g, [shadeOf(shirt, k * 0.55), shadeOf(shirt, k * 0.8), shadeOf(shirt, k)], (xx, yy) => 1 - (yy - top) / 30,
+        x, top + head + 1, w, base - top - head - 1);
+  const hx = x + ((w - head) >> 1);
+  px(g, hx, top + 1, skin, head, head + 1);
+  px(g, hx, top, hair, head, Math.max(2, head >> 2));
+}
+const crowd = canvas(192, 48, (g, W, H) => {
+  const rows = [[34, 0.33, 0.7], [42, 0.45, 0.85], [48, 0.6, 1.0]];     // base line, brightness, size
+  for (const [base, k, s] of rows) {
+    for (let x = -12; x < W; x += 9 + (rnd() * 3 | 0)) {
+      const save = seed;                       // same figure drawn again one tile over, so it wraps
+      person(g, x, base, k, s);
+      if (x < 4) { const after = seed; seed = save; person(g, x + W, base, k, s); seed = after; }
+    }
   }
 });
 
