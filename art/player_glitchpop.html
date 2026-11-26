@@ -262,8 +262,17 @@ const lead = (T, pole) => [T, pole], P = V;
 const bob = k => ({ bounce: Math.abs(Math.sin(k * Math.PI / 4)) * 0.06,
   L: [P(0.36, 2.32 + Math.sin(k * Math.PI / 2 + 0.6) * 0.04, 0.55), GUARD.L[1]],
   R: [P(-0.36, 2.18 + Math.sin(k * Math.PI / 2 + 2.0) * 0.04, 0.42), GUARD.R[1]] });
+// blend two poses (t = 0 -> a, 1 -> b); a missing arm means the guard arm
+const armOf = (p, side) => p[side] || GUARD[side];
+const mix = (a, b, t) => ({
+  lean: (a.lean || 0) * (1 - t) + (b.lean || 0) * t, crouch: (a.crouch || 0) * (1 - t) + (b.crouch || 0) * t,
+  L: [armOf(a, 'L')[0].clone().lerp(armOf(b, 'L')[0], t), armOf(a, 'L')[1].clone().lerp(armOf(b, 'L')[1], t)],
+  R: [armOf(a, 'R')[0].clone().lerp(armOf(b, 'R')[0], t), armOf(a, 'R')[1].clone().lerp(armOf(b, 'R')[1], t)] });
+// each punch: wind-up, strike (60% of the way), impact (fully extended), recover (halfway back to guard)
+const punch = (windup, extended) => [windup, mix(windup, extended, 0.6), extended, mix(extended, {}, 0.5)];
 const FRAMES = [
   bob(0), bob(1), bob(2), bob(3),
+  ...[
   { L: lead(P(0.30, 2.28, 0.35), P(1, -1, -0.6)) },                                         // jab
   { L: lead(P(0.12, 2.45, 1.2), P(1, -1, -0.6)), lean: 0.05 },
   { R: lead(P(-0.40, 2.15, 0.3), P(-1, -1, -0.6)) },                                        // cross
@@ -282,6 +291,7 @@ const FRAMES = [
   { R: lead(P(-0.15, 1.75, 0.95), P(-1, -1, -0.3)), crouch: 0.18 },
   { R: lead(P(-0.85, 2.5, -0.2), P(-1, 0.5, -0.5)), lean: -0.1 },                           // haymaker
   { R: lead(P(0.2, 2.45, 0.95), P(-1, 0.3, 0)), lean: 0.12 },
+  ].flatMap((p, i, all) => i % 2 ? [] : punch(p, all[i + 1])),
   { L: lead(P(0.18, 2.75, 0.42), P(1, -1, 0)), R: lead(P(-0.18, 2.75, 0.42), P(-1, -1, 0)) }, // block
   { crouch: 0.45 },                                                                          // duck
   { lean: 0.35 },                                                                            // dodge left (+X)
@@ -290,7 +300,7 @@ const FRAMES = [
 
 if (EXPORT) {
   const [out, high] = await exportViews({
-    renderer, scene, root, name: 'glitchpop_sheet.png', frameCount: FRAMES.length,
+    renderer, scene, root, name: 'glitchpop_sheet.png', frameCount: FRAMES.length, blocks: 2,
     pose: i => build(FRAMES[i]),
     palette: [...MINT, ...PINK, ...CHOC, CREAM, CREAM_D, CYAN, MAGENTA, '#d8fbff', '#ffffff',
               '#0c0d14', '#141625', '#1d2036', '#272b48', '#05060a'],

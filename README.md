@@ -27,8 +27,8 @@ The enemy starts 2 m away, out of reach: say `forward` twice first.
 - `code/gamecommands.pas`: the command list and text parsing
 - `code/gamerobot.pas`: one move at a time, timings, combos, stop
 - `code/gamecombat.pas`: reach, enemy HP and KO, movement limits
-- `code/gameenemyanim.pas`: which enemy sprite-sheet frame to show (idle, hit, KO)
-- `code/gameplayeranim.pas`: which Glitchpop sprite-sheet frame to show (idle and every move)
+- `code/gameenemyanim.pas`: which enemy sprite-sheet frame to show (idle, KO, and a different reaction for each punch)
+- `code/gameplayeranim.pas`: which Glitchpop sprite-sheet frame to show (idle, 4 frames per punch, defense)
 - `code/gamecamera.pas`: operator / 3/4 cameras and which of the 8 sprite directions to show
 - `code/gameviewmain.pas`: connects the rules to the screen and builds the ring
 - `data/gameviewmain.castle-user-interface`: viewport, both robot sprites and labels (open it in the Castle Engine editor)

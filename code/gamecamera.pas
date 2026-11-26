@@ -23,6 +23,9 @@ function FacingToward(FromX, FromZ, ToX, ToZ: Single): Single;
 procedure OperatorCamera(PX, PZ, FacingDeg: Single; out CX, CZ: Single);
 { Diagonal behind-right of the robot, looking at the midpoint of both robots. }
 procedure ThreeQuarterCamera(PX, PZ, FacingDeg, EX, EZ: Single; out CX, CZ: Single);
+{ Sprite sheets wrap their frames into Blocks stacked vertically (keeps them under the
+  4096 px texture limit); each block is 8 direction rows. Cell of Frame seen from Dir. }
+procedure SheetCell(Frame, Dir, FrameCount, Blocks: Integer; out Col, Row, Cols, Rows: Integer);
 
 implementation
 
@@ -82,6 +85,14 @@ begin
     T := OperatorMinDistance;
   CX := Clamp(PX + DX * T, -ArenaHalfSize, ArenaHalfSize);
   CZ := Clamp(PZ + DZ * T, -ArenaHalfSize, ArenaHalfSize);
+end;
+
+procedure SheetCell(Frame, Dir, FrameCount, Blocks: Integer; out Col, Row, Cols, Rows: Integer);
+begin
+  Cols := (FrameCount + Blocks - 1) div Blocks;
+  Rows := 8 * Blocks;
+  Col := Frame mod Cols;
+  Row := (Frame div Cols) * 8 + Dir;
 end;
 
 procedure ThreeQuarterCamera(PX, PZ, FacingDeg, EX, EZ: Single; out CX, CZ: Single);

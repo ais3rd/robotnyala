@@ -19,7 +19,9 @@ type
     FHasCurrent: Boolean;
     FCurrent: TRobotCommand;
     FTimeLeft: Single;
+    FImpactDone: Boolean;
     FOnMoveStart: TMoveStartEvent;
+    FOnImpact: TMoveStartEvent;
     FOnMoveEnd: TMoveEndEvent;
     procedure StartMove(Move: TRobotCommand);
     procedure EndMove;
@@ -37,6 +39,8 @@ type
     property Current: TRobotCommand read FCurrent;
     { Fired for each single move, including each part of a combo. }
     property OnMoveStart: TMoveStartEvent read FOnMoveStart write FOnMoveStart;
+    { Fired once per punch, halfway through it, when the fist is extended: where it lands. }
+    property OnImpact: TMoveStartEvent read FOnImpact write FOnImpact;
     { Fired when the robot returns to idle. }
     property OnMoveEnd: TMoveEndEvent read FOnMoveEnd write FOnMoveEnd;
   end;
@@ -81,6 +85,7 @@ begin
   FCurrent := Move;
   FHasCurrent := True;
   FTimeLeft := MoveDuration(Move);
+  FImpactDone := MoveDamage(Move) = 0;   // only punches land
   if Assigned(FOnMoveStart) then
     FOnMoveStart(Self, Move);
 end;
@@ -153,6 +158,13 @@ begin
   if (not FHasCurrent) or (FCurrent = rcBlock) then
     Exit;
   FTimeLeft := FTimeLeft - SecondsPassed;
+  { checked before the move can end, so a long frame never skips a landing }
+  if (not FImpactDone) and (FTimeLeft <= MoveDuration(FCurrent) / 2) then
+  begin
+    FImpactDone := True;
+    if Assigned(FOnImpact) then
+      FOnImpact(Self, FCurrent);
+  end;
   if FTimeLeft <= 0 then
   begin
     if Length(FQueue) > 0 then

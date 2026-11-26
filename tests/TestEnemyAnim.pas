@@ -6,7 +6,7 @@ interface
 
 implementation
 
-uses TinyTest, GameEnemyAnim;
+uses TinyTest, GameCommands, GameEnemyAnim;
 
 procedure TestIdleCycles;
 var
@@ -33,12 +33,32 @@ var
 begin
   A := TEnemyAnimator.Create;
   try
-    A.Hit;
-    Check(A.Frame = 4, 'hit starts on frame 4');
+    A.Hit(rcJab);
+    Check(A.Frame = 7, 'jab reaction starts on frame 7');
     A.Update(0.13, False);
-    Check(A.Frame = 5, 'then frame 5');
+    Check(A.Frame = 8, 'then its second frame');
     A.Update(0.2, False);
     Check(A.Frame in [0..3], 'back to idle after the hit');
+  finally
+    A.Free;
+  end;
+end;
+
+procedure TestEveryPunchHasItsOwnReaction;
+var
+  A: TEnemyAnimator;
+begin
+  A := TEnemyAnimator.Create;
+  try
+    A.Hit(rcCross);         Check(A.Frame = 9, 'cross');
+    A.Hit(rcLeftHook);      Check(A.Frame = 11, 'left hook');
+    A.Hit(rcRightHook);     Check(A.Frame = 13, 'right hook');
+    A.Hit(rcLeftUppercut);  Check(A.Frame = 15, 'left uppercut');
+    A.Hit(rcRightUppercut); Check(A.Frame = 17, 'right uppercut');
+    A.Hit(rcLeftBody);      Check(A.Frame = 19, 'left body');
+    A.Hit(rcRightBody);     Check(A.Frame = 21, 'right body');
+    A.Hit(rcHaymaker);      Check(A.Frame = 23, 'haymaker');
+    A.Update(0.13, False);  Check(A.Frame = 24, 'haymaker second frame (last in the sheet)');
   finally
     A.Free;
   end;
@@ -50,15 +70,15 @@ var
 begin
   A := TEnemyAnimator.Create;
   try
-    A.Hit;                      // the knockout punch also counts as a hit
+    A.Hit(rcHaymaker);          // the knockout punch also counts as a hit
     A.Update(0.01, True);
-    Check(A.Frame = 6, 'KO starts on frame 6 (overrides the hit)');
+    Check(A.Frame = 4, 'KO starts on frame 4 (overrides the hit)');
     A.Update(0.19, True);
-    Check(A.Frame = 7, 'then frame 7');
+    Check(A.Frame = 5, 'then frame 5');
     A.Update(0.19, True);
-    Check(A.Frame = 8, 'then frame 8');
+    Check(A.Frame = 6, 'then frame 6');
     A.Update(5.0, True);
-    Check(A.Frame = 8, 'stays down on frame 8');
+    Check(A.Frame = 6, 'stays down on frame 6');
     A.Update(0.01, False);
     Check(A.Frame in [0..3], 'back to idle when the fight resets');
   finally
@@ -73,8 +93,8 @@ begin
   A := TEnemyAnimator.Create;
   try
     A.Update(1.0, True);
-    A.Hit;
-    Check(A.Frame = 8, 'hits do not interrupt the KO');
+    A.Hit(rcJab);
+    Check(A.Frame = 6, 'hits do not interrupt the KO');
     A.Update(0.01, False);
     Check(A.Frame in [0..3], 'and leave no hit pending after the reset');
   finally
@@ -85,6 +105,7 @@ end;
 initialization
   RegisterTest('EnemyAnim.TestIdleCycles', TestIdleCycles);
   RegisterTest('EnemyAnim.TestHitFrames', TestHitFrames);
+  RegisterTest('EnemyAnim.TestEveryPunchHasItsOwnReaction', TestEveryPunchHasItsOwnReaction);
   RegisterTest('EnemyAnim.TestKOSequence', TestKOSequence);
   RegisterTest('EnemyAnim.TestHitIgnoredWhileKO', TestHitIgnoredWhileKO);
 end.

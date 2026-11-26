@@ -15,20 +15,23 @@ begin
   Check(PlayerFrame(False, rcJab, 0, 0.68) = 0, 'idle loops');
 end;
 
-procedure TestPunchHalves;
+procedure TestPunchPhases;
 begin
   Check(PlayerFrame(True, rcJab, 0.05, 0) = 4, 'jab wind-up');
-  Check(PlayerFrame(True, rcJab, 0.2, 0) = 5, 'jab extended');
-  Check(PlayerFrame(True, rcRightUppercut, 0.1, 0) = 14, 'right uppercut wind-up');
-  Check(PlayerFrame(True, rcHaymaker, 0.5, 0) = 21, 'haymaker extended');
+  Check(PlayerFrame(True, rcJab, 0.1, 0) = 5, 'jab strike');
+  Check(PlayerFrame(True, rcJab, 0.15, 0) = 6, 'jab impact');
+  Check(PlayerFrame(True, rcJab, 0.24, 0) = 7, 'jab recover');
+  Check(PlayerFrame(True, rcJab, 0.3, 0) = 7, 'past the end stays on recover');
+  Check(PlayerFrame(True, rcRightUppercut, 0.1, 0) = 25, 'right uppercut strike');
+  Check(PlayerFrame(True, rcHaymaker, 0.5, 0) = 38, 'haymaker impact');
 end;
 
 procedure TestHeldAndSingle;
 begin
-  Check(PlayerFrame(True, rcBlock, 3.0, 0) = 22, 'block held');
-  Check(PlayerFrame(True, rcDuck, 0.1, 0) = 23, 'duck');
-  Check(PlayerFrame(True, rcDodgeLeft, 0.1, 0) = 24, 'dodge left');
-  Check(PlayerFrame(True, rcDodgeRight, 0.1, 0) = 25, 'dodge right');
+  Check(PlayerFrame(True, rcBlock, 3.0, 0) = 40, 'block held');
+  Check(PlayerFrame(True, rcDuck, 0.1, 0) = 41, 'duck');
+  Check(PlayerFrame(True, rcDodgeLeft, 0.1, 0) = 42, 'dodge left');
+  Check(PlayerFrame(True, rcDodgeRight, 0.1, 0) = 43, 'dodge right');
 end;
 
 procedure TestMovementUsesIdle;
@@ -55,7 +58,7 @@ end;
 
 initialization
   RegisterTest('PlayerAnim.TestIdleLoop', TestIdleLoop);
-  RegisterTest('PlayerAnim.TestPunchHalves', TestPunchHalves);
+  RegisterTest('PlayerAnim.TestPunchPhases', TestPunchPhases);
   RegisterTest('PlayerAnim.TestHeldAndSingle', TestHeldAndSingle);
   RegisterTest('PlayerAnim.TestMovementUsesIdle', TestMovementUsesIdle);
   RegisterTest('PlayerAnim.TestRobotElapsed', TestRobotElapsed);

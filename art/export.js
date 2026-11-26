@@ -19,12 +19,13 @@ export async function exportViews(opts) {
 }
 
 // Sheet: rows = 8 view directions (0 = front, 2 = robot's left, 4 = back, 6 = robot's right),
-// columns = frames. Orthographic, looking `pitch` degrees down (negative = up: -3 matches the
+// columns = frames, wrapped into `blocks` stacked vertically (block b = frames b*cols..; same
+// layout as GameCamera.SheetCell in the game) to stay under 4096 px. Orthographic, looking `pitch` degrees down (negative = up: -3 matches the
 // game's crouched operator camera), one crop box for every cell
 // (so the feet stay put), colours snapped to `palette`, 1-pixel dark outline.
 // pose(i) puts the robot in frame i (from its rest pose); the robot faces +Z at rotation 0.
 export async function exportSheet({ renderer, scene, root, frameCount, pose, palette, name,
-                                    FW = 200, FH = 270, span = 5.3, pitch = -3, outline = [10, 12, 15] }) {
+                                    blocks = 1, FW = 200, FH = 270, span = 6.0, pitch = -3, outline = [10, 12, 15] }) {
   renderer.setSize(FW, FH, false);
   const aspect = FW / FH, lookY = span / 2 - 0.25, p = THREE.MathUtils.degToRad(pitch);
   const cam = new THREE.OrthographicCamera(-span * aspect / 2, span * aspect / 2, span / 2, -span / 2, 0.1, 100);
@@ -53,10 +54,14 @@ export async function exportSheet({ renderer, scene, root, frameCount, pose, pal
   }
   x0 -= 1; y0 -= 1; x1 += 1;                        // room for the outline (not below the feet)
   const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+  const cols = Math.ceil(frameCount / blocks);
   const sheet = document.createElement('canvas');
-  sheet.width = bw * frameCount; sheet.height = bh * 8;
+  sheet.width = bw * cols; sheet.height = bh * 8 * blocks;
   const g = sheet.getContext('2d');
-  cells.forEach((c, i) => g.drawImage(c, x0, y0, bw, bh, (i % frameCount) * bw, Math.floor(i / frameCount) * bh, bw, bh));
+  cells.forEach((c, i) => {
+    const dir = Math.floor(i / frameCount), f = i % frameCount;
+    g.drawImage(c, x0, y0, bw, bh, (f % cols) * bw, (Math.floor(f / cols) * 8 + dir) * bh, bw, bh);
+  });
 
   // palette snap + hard alpha, then outline (never across cell borders)
   const w = sheet.width, h = sheet.height, img = g.getImageData(0, 0, w, h), d = img.data;
@@ -72,7 +77,7 @@ export async function exportSheet({ renderer, scene, root, frameCount, pose, pal
     }
     d[i * 4] = best[0]; d[i * 4 + 1] = best[1]; d[i * 4 + 2] = best[2]; d[i * 4 + 3] = 255;
   }
-  const cell = (x, y) => Math.floor(x / bw) + Math.floor(y / bh) * frameCount;
+  const cell = (x, y) => Math.floor(x / bw) + Math.floor(y / bh) * cols;
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const i = y * w + x; if (solid[i]) continue;
     const near = (xx, yy) => xx >= 0 && yy >= 0 && xx < w && yy < h && cell(xx, yy) === cell(x, y) && solid[yy * w + xx];

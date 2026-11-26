@@ -68,7 +68,22 @@ begin
   CheckNear(Z, 2.536, '3/4 camera z');
 end;
 
+procedure TestSheetCell;
+var
+  Col, Row, Cols, Rows: Integer;
+begin
+  SheetCell(0, 0, 44, 2, Col, Row, Cols, Rows);
+  Check((Col = 0) and (Row = 0) and (Cols = 22) and (Rows = 16), 'first cell; 44 frames in 2 blocks');
+  SheetCell(23, 5, 44, 2, Col, Row, Cols, Rows);
+  Check((Col = 1) and (Row = 13), 'frame 23 wraps to the second block, direction row 5');
+  SheetCell(12, 7, 25, 2, Col, Row, Cols, Rows);
+  Check((Col = 12) and (Row = 7) and (Cols = 13), 'last cell of the first block (odd count rounds up)');
+  SheetCell(24, 0, 25, 2, Col, Row, Cols, Rows);
+  Check((Col = 11) and (Row = 8), 'last frame lands in the second block');
+end;
+
 initialization
+  RegisterTest('Camera.TestSheetCell', TestSheetCell);
   RegisterTest('Camera.TestDirectionBasics', TestDirectionBasics);
   RegisterTest('Camera.TestDirectionWraps', TestDirectionWraps);
   RegisterTest('Camera.TestFacingToward', TestFacingToward);

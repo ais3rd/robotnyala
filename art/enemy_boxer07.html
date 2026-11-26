@@ -251,16 +251,6 @@ const FRAMES = [
     arms[-1].sh.rotation.x += Math.sin(ph + 2.0) * 0.08;
     head.rotation.x += Math.sin(ph) * 0.04;
   }]),
-  // hit: head snaps back, chest rocks, guard opens; then half recovered
-  ['hit0', () => {
-    chest.rotation.x -= 0.32; head.rotation.x -= 0.55; head.rotation.z += 0.2;
-    for (const s of [-1, 1]) { arms[s].sh.rotation.x += 0.55; arms[s].sh.rotation.z += 0.35 * s; }
-    legs[1].hip.rotation.x += 0.2;
-  }],
-  ['hit1', () => {
-    chest.rotation.x -= 0.15; head.rotation.x -= 0.25; head.rotation.z += 0.08;
-    for (const s of [-1, 1]) { arms[s].sh.rotation.x += 0.25; arms[s].sh.rotation.z += 0.15 * s; }
-  }],
   // KO: stagger with the guard dropped, knees buckle, slump down onto the knees
   ['ko0', () => {
     chest.rotation.x -= 0.25; head.rotation.x -= 0.4; head.rotation.z -= 0.25;
@@ -280,12 +270,35 @@ const FRAMES = [
     }
     chest.rotation.set(0.55, 0, 0.1); head.rotation.set(0.75, 0, -0.3);
   }],
+  // hit reactions, one per punch (order = GameEnemyAnim): full reaction, then half recovered.
+  // Glitchpop faces Boxer 07, so its LEFT hand lands on Boxer 07's RIGHT side: the head turns
+  // to Boxer 07's left (+y). h/c = head/chest rotation, lift = chest up, ax/az = arms thrown
+  // (az outward), knee = knees give.
+  ...[
+    ['jab',      { hx: -0.35, cx: -0.1, ax: 0.2 }],
+    ['cross',    { hx: -0.6, cx: -0.3, ax: 0.45, az: 0.25 }],
+    ['lhook',    { hy: 0.75, hz: 0.3, cy: 0.35, cz: 0.12, az: 0.2 }],
+    ['rhook',    { hy: -0.75, hz: -0.3, cy: -0.35, cz: -0.12, az: 0.2 }],
+    ['lup',      { hx: -0.9, hz: 0.15, cx: -0.4, lift: 0.12, ax: 0.6, az: 0.35 }],
+    ['rup',      { hx: -0.9, hz: -0.15, cx: -0.4, lift: 0.12, ax: 0.6, az: 0.35 }],
+    ['lbody',    { hx: 0.3, cx: 0.5, cz: 0.25, ax: 0.7, knee: 0.35 }],
+    ['rbody',    { hx: 0.3, cx: 0.5, cz: -0.25, ax: 0.7, knee: 0.35 }],
+    ['haymaker', { hx: -0.45, hy: -1.0, cx: -0.3, cy: -0.7, cz: -0.2, ax: 0.4, az: 0.6, knee: 0.25 }],
+  ].flatMap(([name, r]) => [1, 0.5].map(k => [name + (k === 1 ? '0' : '1'), () => {
+    head.rotation.x += (r.hx || 0) * k; head.rotation.y += (r.hy || 0) * k; head.rotation.z += (r.hz || 0) * k;
+    chest.rotation.x += (r.cx || 0) * k; chest.rotation.y += (r.cy || 0) * k; chest.rotation.z += (r.cz || 0) * k;
+    chest.position.y += (r.lift || 0) * k;
+    for (const s of [-1, 1]) {
+      arms[s].sh.rotation.x += (r.ax || 0) * k; arms[s].sh.rotation.z += (r.az || 0) * k * s;
+      legs[s].kn.rotation.x += (r.knee || 0) * k; legs[s].hip.rotation.x -= (r.knee || 0) * k * 0.5;
+    }
+  }])),
 ];
 
 /* ---------- export: 8-direction flat 2D sprite sheet (see export.js) ---------- */
 if (EXPORT) {
   const [out, high] = await exportViews({
-    renderer, scene, root, name: 'enemy_sheet.png', frameCount: FRAMES.length,
+    renderer, scene, root, name: 'enemy_sheet.png', frameCount: FRAMES.length, blocks: 2,
     pose: i => { resetPose(); FRAMES[i][1](); },
     // the colours the textures were painted with, plus a darker shadow ramp
     palette: [...OLIVE, ...STEEL, CREAM, CREAM_D, ...GLOW, '#14170f', '#0d0f12', '#ffa040', '#c86a2a'],

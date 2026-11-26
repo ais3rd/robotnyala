@@ -43,7 +43,7 @@ type
     procedure BuildRing;
     procedure SubmitCommand(const Text: string);
     procedure RobotMoveStart(Sender: TObject; Move: TRobotCommand);
-    procedure PunchAt(Move: TRobotCommand);
+    procedure PunchAt(Sender: TObject; Move: TRobotCommand);
   public
     constructor Create(AOwner: TComponent); override;
     procedure Start; override;
@@ -61,25 +61,30 @@ uses SysUtils, CastleColors;
 
 const
   HitFlashTime = 0.15;
-  { all sprite sheets share one pixel density: Boxer 07's low-angle cell (261 px) is 2.3 m }
-  SpriteMetersPerPixel = 2.3 / 261;
+  { all sprite sheets share one pixel density: Boxer 07 standing was 261 px = 2.3 m when
+    exported with span 5.3; art/export.js now uses span 6.0 (smaller pixels per metre) }
+  SpriteMetersPerPixel = 2.3 / 261 * 6.0 / 5.3;
+  SheetBlocks = 2;            // both sheets wrap their frames into 2 blocks (art/export.js)
   OperatorHeight = 0.7;       // crouched at the ring apron (user's pick), so the legs show...
   OperatorLookHeight = 1.1;   // ...looking up at the robots; sprites are drawn from 3 deg below to match
   ThreeQuarterHeight = 2.2;
   ThreeQuarterLookHeight = 1.2;
 
-{ Show one cell of a sprite sheet: Cols frames across, 8 view directions down
-  (row 0 at the top of the PNG). Size and Pivot refer to the whole sheet, so the
-  pivot goes to the middle of one cell; texture Y=0 is the bottom of the image.
-  Cells are cropped at the feet, so lifting the sprite by half a cell stands it on the floor. }
-procedure ShowCell(const T: TCastleImageTransform; Col, Cols, Row: Integer);
+{ Show Frame seen from direction Dir (layout: GameCamera.SheetCell, row 0 at the top of
+  the PNG). Size and Pivot refer to the whole sheet, so the pivot goes to the middle of one
+  cell; texture Y=0 is the bottom of the image. Cells are cropped at the feet, so lifting
+  the sprite by half a cell stands it on the floor. }
+procedure ShowCell(const T: TCastleImageTransform; Frame, FrameCount, Dir: Integer);
+var
+  Col, Row, Cols, Rows: Integer;
 begin
   if T.ImageHeight = 0 then Exit; // image failed to load: nothing to size
+  SheetCell(Frame, Dir, FrameCount, SheetBlocks, Col, Row, Cols, Rows);
   T.Size := Vector2(T.ImageWidth * SpriteMetersPerPixel, T.ImageHeight * SpriteMetersPerPixel);
-  T.Translation := Vector3(T.Translation.X, T.Size.Y / 16, T.Translation.Z);
-  T.RepeatImage := Vector2(1 / Cols, 1 / 8);
-  T.Pivot := Vector2(0.5 / Cols, 0.5 / 8);
-  T.Shift := Vector2(Col / Cols, (7 - Row) / 8);
+  T.Translation := Vector3(T.Translation.X, T.Size.Y / Rows / 2, T.Translation.Z);
+  T.RepeatImage := Vector2(1 / Cols, 1 / Rows);
+  T.Pivot := Vector2(0.5 / Cols, 0.5 / Rows);
+  T.Shift := Vector2(Col / Cols, (Rows - 1 - Row) / Rows);
 end;
 
 { TViewMain ----------------------------------------------------------------- }
@@ -142,6 +147,7 @@ begin
   inherited;
   Robot := TRobot.Create;
   Robot.OnMoveStart := {$ifdef FPC}@{$endif}RobotMoveStart;
+  Robot.OnImpact := {$ifdef FPC}@{$endif}PunchAt;
   EnemyState := TEnemyState.Create;
   EnemyAnim := TEnemyAnimator.Create;
 
@@ -167,7 +173,8 @@ begin
   inherited;
 end;
 
-procedure TViewMain.PunchAt(Move: TRobotCommand);
+{ Robot.OnImpact: the punch reaches full extension (halfway through the move) }
+procedure TViewMain.PunchAt(Sender: TObject; Move: TRobotCommand);
 begin
   if EnemyState.IsKO then
     LabelLast.Caption := CommandName(Move)
@@ -175,7 +182,7 @@ begin
   if PunchHits(PlayerX, PlayerZ, FacingDeg, Enemy.Translation.X, Enemy.Translation.Z) then
   begin
     EnemyState.Hit(MoveDamage(Move));
-    EnemyAnim.Hit;
+    EnemyAnim.Hit(Move);
     FlashTimeLeft := HitFlashTime;
     LabelLast.Caption := CommandName(Move) + ' - HIT!';
   end else
@@ -186,9 +193,6 @@ procedure TViewMain.RobotMoveStart(Sender: TObject; Move: TRobotCommand);
 var
   FX, FZ: Single;
 begin
-  if MoveDamage(Move) > 0 then
-    PunchAt(Move);
-
   { Right of the facing direction (FX, FZ) is (-FZ, FX). Duck and dodge are only
     shown by the sprite now (no first-person camera to move). }
   FacingVector(FacingDeg, FX, FZ);

@@ -12,10 +12,18 @@ type
   { Records what the robot reports through its events. }
   TRecorder = class
     Started: array of TRobotCommand;
+    Impacts: array of TRobotCommand;
     EndCount: Integer;
     procedure MoveStart(Sender: TObject; Move: TRobotCommand);
+    procedure Impact(Sender: TObject; Move: TRobotCommand);
     procedure MoveEnd(Sender: TObject);
   end;
+
+procedure TRecorder.Impact(Sender: TObject; Move: TRobotCommand);
+begin
+  SetLength(Impacts, Length(Impacts) + 1);
+  Impacts[High(Impacts)] := Move;
+end;
 
 procedure TRecorder.MoveStart(Sender: TObject; Move: TRobotCommand);
 begin
@@ -40,6 +48,49 @@ begin
   Rec := TRecorder.Create;
   Robot.OnMoveStart := Rec.MoveStart;
   Robot.OnMoveEnd := Rec.MoveEnd;
+  Robot.OnImpact := Rec.Impact;
+end;
+
+{ a punch lands halfway through its move, when the fist is extended }
+procedure TestImpactAtHalf;
+begin
+  Setup;
+  Robot.Command(rcJab);
+  Robot.Update(0.1);
+  Check(Length(Rec.Impacts) = 0, 'no impact during the wind-up');
+  Robot.Update(0.05);
+  Check((Length(Rec.Impacts) = 1) and (Rec.Impacts[0] = rcJab), 'jab lands at half time');
+  Robot.Update(0.2);
+  Check(Length(Rec.Impacts) = 1, 'lands only once');
+end;
+
+procedure TestStopBeforeImpact;
+begin
+  Setup;
+  Robot.Command(rcHaymaker);
+  Robot.Update(0.2);
+  Robot.Command(rcStop);
+  Robot.Update(1.0);
+  Check(Length(Rec.Impacts) = 0, 'a punch stopped during the wind-up never lands');
+end;
+
+procedure TestComboImpacts;
+begin
+  Setup;
+  Robot.Command(rcCombo);
+  Robot.Update(0.26);
+  Robot.Update(0.31);
+  Robot.Update(0.41);
+  Check((Length(Rec.Impacts) = 3) and (Rec.Impacts[0] = rcJab) and (Rec.Impacts[1] = rcCross)
+    and (Rec.Impacts[2] = rcLeftHook), 'every punch of a combo lands, in order');
+end;
+
+procedure TestNoImpactForMoves;
+begin
+  Setup;
+  Robot.Command(rcForward);
+  Robot.Update(0.3);
+  Check(Length(Rec.Impacts) = 0, 'stepping is not a punch');
 end;
 
 procedure TestSingleMove;
@@ -128,6 +179,10 @@ initialization
   RegisterTest('Robot.TestStopCancelsCombo', TestStopCancelsCombo);
   RegisterTest('Robot.TestBlockHeld', TestBlockHeld);
   RegisterTest('Robot.TestValues', TestValues);
+  RegisterTest('Robot.TestImpactAtHalf', TestImpactAtHalf);
+  RegisterTest('Robot.TestStopBeforeImpact', TestStopBeforeImpact);
+  RegisterTest('Robot.TestComboImpacts', TestComboImpacts);
+  RegisterTest('Robot.TestNoImpactForMoves', TestNoImpactForMoves);
 finalization
   Robot.Free;
   Rec.Free;
