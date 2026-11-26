@@ -11,6 +11,13 @@ export async function savePNG(canvas, name) {
 
 const hex = s => [1, 3, 5].map(i => parseInt(s.slice(i, i + 2), 16));
 
+// The game's two cameras see the robots from different heights, so each robot gets two sheets:
+// <name>.png from 3 deg below (crouched operator camera) and <name>_high.png from 12 deg above (3/4 camera).
+export async function exportViews(opts) {
+  return [await exportSheet({ ...opts, pitch: -3 }),
+          await exportSheet({ ...opts, pitch: 12, name: opts.name.replace('.png', '_high.png') })];
+}
+
 // Sheet: rows = 8 view directions (0 = front, 2 = robot's left, 4 = back, 6 = robot's right),
 // columns = frames. Orthographic, looking `pitch` degrees down (negative = up: -3 matches the
 // game's crouched operator camera), one crop box for every cell

@@ -20,7 +20,7 @@
 <div id="info"></div>
 <script type="module">
 import * as THREE from 'three';
-import { exportSheet } from './export.js';
+import { exportViews } from './export.js';
 
 const PARAMS = new URLSearchParams(location.search);
 const EXPORT = PARAMS.has('export');
@@ -284,14 +284,14 @@ const FRAMES = [
 
 /* ---------- export: 8-direction flat 2D sprite sheet (see export.js) ---------- */
 if (EXPORT) {
-  const out = await exportSheet({
+  const [out, high] = await exportViews({
     renderer, scene, root, name: 'enemy_sheet.png', frameCount: FRAMES.length,
     pose: i => { resetPose(); FRAMES[i][1](); },
     // the colours the textures were painted with, plus a darker shadow ramp
     palette: [...OLIVE, ...STEEL, CREAM, CREAM_D, ...GLOW, '#14170f', '#0d0f12', '#ffa040', '#c86a2a'],
   });
-  window.EXPORT_DONE = { cellW: out.cellW, cellH: out.cellH, width: out.width, height: out.height };
-  document.getElementById('info').textContent = `saved enemy_sheet.png ${out.width}×${out.height}`;
+  window.EXPORT_DONE = { low: [out.width, out.height], high: [high.width, high.height] };
+  document.getElementById('info').textContent = `saved enemy_sheet.png ${out.width}×${out.height}, enemy_sheet_high.png ${high.width}×${high.height}`;
   out.sheet.style.cssText = 'image-rendering:pixelated;max-width:98vw;max-height:95vh;background:#334';
   renderer.domElement.replaceWith(out.sheet);
 } else {

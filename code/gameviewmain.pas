@@ -61,8 +61,8 @@ uses SysUtils, CastleColors;
 
 const
   HitFlashTime = 0.15;
-  EnemyHeight = 2.3;    // metres; both sheets have the same pixel density,
-  PlayerHeight = 1.66;  // so Glitchpop's 188 px cells are 188/261 of Boxer 07's
+  { all sprite sheets share one pixel density: Boxer 07's low-angle cell (261 px) is 2.3 m }
+  SpriteMetersPerPixel = 2.3 / 261;
   OperatorHeight = 0.7;       // crouched at the ring apron (user's pick), so the legs show...
   OperatorLookHeight = 1.1;   // ...looking up at the robots; sprites are drawn from 3 deg below to match
   ThreeQuarterHeight = 2.2;
@@ -70,11 +70,13 @@ const
 
 { Show one cell of a sprite sheet: Cols frames across, 8 view directions down
   (row 0 at the top of the PNG). Size and Pivot refer to the whole sheet, so the
-  pivot goes to the middle of one cell; texture Y=0 is the bottom of the image. }
-procedure ShowCell(const T: TCastleImageTransform; Col, Cols, Row: Integer; CellHeight: Single);
+  pivot goes to the middle of one cell; texture Y=0 is the bottom of the image.
+  Cells are cropped at the feet, so lifting the sprite by half a cell stands it on the floor. }
+procedure ShowCell(const T: TCastleImageTransform; Col, Cols, Row: Integer);
 begin
   if T.ImageHeight = 0 then Exit; // image failed to load: nothing to size
-  T.Size := Vector2(CellHeight * 8 * T.ImageWidth / T.ImageHeight, CellHeight * 8);
+  T.Size := Vector2(T.ImageWidth * SpriteMetersPerPixel, T.ImageHeight * SpriteMetersPerPixel);
+  T.Translation := Vector3(T.Translation.X, T.Size.Y / 16, T.Translation.Z);
   T.RepeatImage := Vector2(1 / Cols, 1 / 8);
   T.Pivot := Vector2(0.5 / Cols, 0.5 / 8);
   T.Shift := Vector2(Col / Cols, (7 - Row) / 8);
@@ -252,12 +254,12 @@ begin
     (Vector3((PlayerX + EX) / 2, LookY, (PlayerZ + EZ) / 2) - CamPos).Normalize,
     Vector3(0, 1, 0));
 
-  Player.Translation := Vector3(PlayerX, PlayerHeight / 2, PlayerZ);
+  Player.Translation := Vector3(PlayerX, 0, PlayerZ);
   ShowCell(Player, PlayerFrame(Robot.HasCurrent, Robot.Current, Robot.Elapsed, IdleTime),
-    PlayerFrameCount, SpriteDirection(PlayerX, PlayerZ, FacingDeg, CamX, CamZ), PlayerHeight);
+    PlayerFrameCount, SpriteDirection(PlayerX, PlayerZ, FacingDeg, CamX, CamZ));
   { Boxer 07 always squares up to Glitchpop }
   ShowCell(Enemy, EnemyAnim.Frame, EnemyFrameCount,
-    SpriteDirection(EX, EZ, FacingToward(EX, EZ, PlayerX, PlayerZ), CamX, CamZ), EnemyHeight);
+    SpriteDirection(EX, EZ, FacingToward(EX, EZ, PlayerX, PlayerZ), CamX, CamZ));
 
   if FlashTimeLeft > 0 then
     FlashTimeLeft := FlashTimeLeft - SecondsPassed;
@@ -285,10 +287,18 @@ begin
   if Event.IsKey(keyTab) then
   begin
     ThreeQuarter := not ThreeQuarter;
+    { each camera has sprite sheets drawn from its own height (art/export.js exportViews) }
     if ThreeQuarter then
-      LabelCamera.Caption := 'Camera: 3/4 (Tab)'
-    else
+    begin
+      LabelCamera.Caption := 'Camera: 3/4 (Tab)';
+      Enemy.Url := 'castle-data:/images/enemy_sheet_high.png';
+      Player.Url := 'castle-data:/images/glitchpop_sheet_high.png';
+    end else
+    begin
       LabelCamera.Caption := 'Camera: operator (Tab)';
+      Enemy.Url := 'castle-data:/images/enemy_sheet.png';
+      Player.Url := 'castle-data:/images/glitchpop_sheet.png';
+    end;
     Exit(true);
   end;
 end;

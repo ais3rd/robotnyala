@@ -21,7 +21,7 @@
 <div id="info"></div>
 <script type="module">
 import * as THREE from 'three';
-import { exportSheet } from './export.js';
+import { exportViews } from './export.js';
 
 const PARAMS = new URLSearchParams(location.search);
 const EXPORT = PARAMS.has('export');
@@ -289,14 +289,14 @@ const FRAMES = [
 ];
 
 if (EXPORT) {
-  const out = await exportSheet({
+  const [out, high] = await exportViews({
     renderer, scene, root, name: 'glitchpop_sheet.png', frameCount: FRAMES.length,
     pose: i => build(FRAMES[i]),
     palette: [...MINT, ...PINK, ...CHOC, CREAM, CREAM_D, CYAN, MAGENTA, '#d8fbff', '#ffffff',
               '#0c0d14', '#141625', '#1d2036', '#272b48', '#05060a'],
   });
-  window.EXPORT_DONE = { cellW: out.cellW, cellH: out.cellH, width: out.width, height: out.height };
-  info.textContent = `saved glitchpop_sheet.png ${out.width}×${out.height}`;
+  window.EXPORT_DONE = { low: [out.width, out.height], high: [high.width, high.height] };
+  info.textContent = `saved glitchpop_sheet.png ${out.width}×${out.height}, glitchpop_sheet_high.png ${high.width}×${high.height}`;
   out.sheet.style.cssText = 'image-rendering:pixelated;max-width:98vw;max-height:95vh;background:#334';
   renderer.domElement.replaceWith(out.sheet);
 } else {
