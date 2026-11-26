@@ -20,7 +20,7 @@
 <div id="info"></div>
 <script type="module">
 import * as THREE from 'three';
-import { savePNG } from './export.js';
+import { exportSheet } from './export.js';
 
 const PARAMS = new URLSearchParams(location.search);
 const EXPORT = PARAMS.has('export');
@@ -241,10 +241,6 @@ let yaw = +(PARAMS.get('yaw') ?? -0.35), drag = null;
 const BASE = [];
 root.traverse(o => BASE.push([o, o.position.clone(), o.rotation.clone()]));
 function resetPose() { for (const [o, p, r] of BASE) { o.position.copy(p); o.rotation.copy(r); } }
-function groundFeet() {
-  root.position.y = 0; root.updateMatrixWorld(true);
-  root.position.y = -new THREE.Box3().setFromObject(root).min.y;
-}
 const FRAMES = [
   // idle bounce: 4 beats of the breathing / hand-bob loop
   ...[0, 1, 2, 3].map(k => ['idle' + k, () => {
@@ -286,82 +282,18 @@ const FRAMES = [
   }],
 ];
 
-/* ---------- export: flat 2D sprite sheet (orthographic, posterized, outlined) ---------- */
-// The game shows it as a billboard, so a straight-on view with no perspective reads as a hand-made sprite.
-const FW = 200, FH = 270;          // render size per frame, before cropping
-const OUTLINE = [10, 12, 15];      // dark outline colour
-// limited palette = the colours the textures were painted with, plus a darker shadow ramp
-const hex = s => [1, 3, 5].map(i => parseInt(s.slice(i, i + 2), 16));
-const PALETTE = [...OLIVE, ...STEEL, CREAM, CREAM_D, ...GLOW, '#14170f', '#0d0f12', '#ffa040', '#c86a2a']
-  .map(hex);
-function nearest(r, g, b) {
-  let best = PALETTE[0], bd = 1e9;
-  for (const p of PALETTE) {
-    const dr = r - p[0], dg = g - p[1], db = b - p[2];
-    const dist = dr * dr * 0.3 + dg * dg * 0.59 + db * db * 0.11;
-    if (dist < bd) { bd = dist; best = p; }
-  }
-  return best;
-}
-
-function renderFrame(apply, ortho) {
-  resetPose(); apply(); groundFeet();
-  renderer.render(scene, ortho);
-  const c = document.createElement('canvas'); c.width = FW; c.height = FH;
-  c.getContext('2d').drawImage(renderer.domElement, 0, 0);
-  return c;
-}
-function flatten(sheet, slotW) {
-  const g = sheet.getContext('2d'), w = sheet.width, h = sheet.height;
-  const img = g.getImageData(0, 0, w, h), d = img.data;
-  const solid = new Uint8Array(w * h);
-  for (let i = 0; i < w * h; i++) {
-    const a = d[i * 4 + 3];
-    if (a >= 128) {
-      solid[i] = 1;
-      const c = nearest(d[i * 4], d[i * 4 + 1], d[i * 4 + 2]);   // snap to the model's own palette
-      d[i * 4] = c[0]; d[i * 4 + 1] = c[1]; d[i * 4 + 2] = c[2]; d[i * 4 + 3] = 255;
-    }
-    else d[i * 4 + 3] = 0;                                 // hard edges, no soft alpha
-  }
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const i = y * w + x; if (solid[i]) continue;
-    const slot = Math.floor(x / slotW);
-    const near = (xx, yy) => xx >= 0 && yy >= 0 && xx < w && yy < h && Math.floor(xx / slotW) === slot && solid[yy * w + xx];
-    if (near(x - 1, y) || near(x + 1, y) || near(x, y - 1) || near(x, y + 1)) {
-      d[i * 4] = OUTLINE[0]; d[i * 4 + 1] = OUTLINE[1]; d[i * 4 + 2] = OUTLINE[2]; d[i * 4 + 3] = 255;
-    }
-  }
-  g.putImageData(img, 0, 0);
-}
-
+/* ---------- export: 8-direction flat 2D sprite sheet (see export.js) ---------- */
 if (EXPORT) {
-  renderer.setSize(FW, FH, false);
-  const span = 5.3, aspect = FW / FH;          // world units shown vertically
-  const ortho = new THREE.OrthographicCamera(-span * aspect / 2, span * aspect / 2, span / 2, -span / 2, 0.1, 100);
-  ortho.position.set(0, span / 2 - 0.25, 20); ortho.lookAt(0, span / 2 - 0.25, 0);
-  root.rotation.y = +(PARAMS.get('yaw') ?? -0.15);
-
-  const shots = FRAMES.map(([name, apply]) => renderFrame(apply, ortho));
-  // one crop box shared by all frames, so the feet stay put when frames change
-  let x0 = FW, y0 = FH, x1 = -1, y1 = -1;
-  for (const c of shots) {
-    const d = c.getContext('2d').getImageData(0, 0, FW, FH).data;
-    for (let y = 0; y < FH; y++) for (let x = 0; x < FW; x++) if (d[(y * FW + x) * 4 + 3] >= 128) {
-      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
-    }
-  }
-  x0 -= 1; y0 -= 1; x1 += 1;                    // room for the outline (not below the feet)
-  const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
-  const sheet = document.createElement('canvas'); sheet.width = bw * shots.length; sheet.height = bh;
-  shots.forEach((c, i) => sheet.getContext('2d').drawImage(c, x0, y0, bw, bh, i * bw, 0, bw, bh));
-  flatten(sheet, bw);
-  const size = await savePNG(sheet, 'enemy_sheet.png', { crop: false });
-  document.getElementById('info').textContent = `saved enemy_sheet.png ${size[0]}×${size[1]} (${shots.length} frames of ${bw}×${bh})`;
-  window.EXPORT_DONE = { frames: FRAMES.map(f => f[0]), frameW: bw, frameH: bh, sheet: size };
-  // show the sheet on the page for a quick look
-  sheet.style.cssText = 'image-rendering:pixelated;width:' + Math.min(innerWidth - 20, sheet.width * 2) + 'px;background:#334';
-  renderer.domElement.replaceWith(sheet);
+  const out = await exportSheet({
+    renderer, scene, root, name: 'enemy_sheet.png', frameCount: FRAMES.length,
+    pose: i => { resetPose(); FRAMES[i][1](); },
+    // the colours the textures were painted with, plus a darker shadow ramp
+    palette: [...OLIVE, ...STEEL, CREAM, CREAM_D, ...GLOW, '#14170f', '#0d0f12', '#ffa040', '#c86a2a'],
+  });
+  window.EXPORT_DONE = { cellW: out.cellW, cellH: out.cellH, width: out.width, height: out.height };
+  document.getElementById('info').textContent = `saved enemy_sheet.png ${out.width}×${out.height}`;
+  out.sheet.style.cssText = 'image-rendering:pixelated;max-width:98vw;max-height:95vh;background:#334';
+  renderer.domElement.replaceWith(out.sheet);
 } else {
 
 renderer.domElement.addEventListener('pointerdown', e => { drag = e.clientX; renderer.domElement.setPointerCapture(e.pointerId); });

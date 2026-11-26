@@ -5,9 +5,8 @@
 <title>Glitchpop</title>
 <!-- Player robot "Glitchpop": small, zippy, candy-coloured, a bit glitchy.
      Open via art/server.js:
-       http://localhost:8765/player_glitchpop.html          full-body showcase (drag to rotate)
-       http://localhost:8765/player_glitchpop.html?fp       first-person arm poses preview
-       http://localhost:8765/player_glitchpop.html?fp&export  render data/images/fist_{left,right}_<pose>.png -->
+       http://localhost:8765/player_glitchpop.html            full-body showcase (drag to rotate, ?frame=N)
+       http://localhost:8765/player_glitchpop.html?export     render data/images/glitchpop_sheet.png -->
 <style>
   html, body { margin: 0; height: 100%; background: #0b0d10; overflow: hidden; }
   body { display: flex; align-items: center; justify-content: center; }
@@ -22,12 +21,11 @@
 <div id="info"></div>
 <script type="module">
 import * as THREE from 'three';
-import { savePNG } from './export.js';
+import { exportSheet } from './export.js';
 
 const PARAMS = new URLSearchParams(location.search);
-const FP = PARAMS.has('fp');
 const EXPORT = PARAMS.has('export');
-const W = FP ? 480 : 270, H = FP ? 270 : 480, TS = 64;
+const W = 270, H = 480, TS = 64;
 
 /* ---------- pixel texture painting (same style as Boxer 07) ---------- */
 const BAYER = [0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5].map(v => v / 16);
@@ -158,8 +156,7 @@ const M = {
 };
 // box face order: +x, -x, +y, -y, +z(front), -z
 const faces = (base, front, top = base) => [base, base, top, base, front, base];
-// fist boxes are aligned along +y = punching direction: knuckles on +y, back of hand on -y... in
-// first person we look at the back of the hand, which faces the camera = the box's -y side
+// fist boxes run along +y = punching direction: knuckles on +y, the swirl on the back of the hand
 const fistMats = [M.mitt, M.mitt, M.knuckle, M.mitt, M.mittBack, M.mitt];
 
 /* ---------- build helpers ---------- */
@@ -199,7 +196,7 @@ function arm(parent, S, T, pole, sz, roll = 0) {
 }
 
 /* ---------- renderer / scene ---------- */
-const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: EXPORT || FP, preserveDrawingBuffer: EXPORT });
+const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: EXPORT, preserveDrawingBuffer: EXPORT });
 renderer.setPixelRatio(1);
 renderer.setSize(W, H, false);
 document.body.appendChild(renderer.domElement);
@@ -217,115 +214,112 @@ function fit() {
 addEventListener('resize', fit); fit();
 const info = document.getElementById('info');
 
-if (!FP) {
-  /* ================= full-body showcase ================= */
-  scene.background = T.bg;
-  const camera = new THREE.PerspectiveCamera(34, W / H, 0.1, 100);
-  camera.position.set(0, 2.1, 9.0); camera.lookAt(0, 1.75, 0);
-
-  const root = group(scene);
-  const body = group(root);
-  // legs: chocolate thighs, mint shins, pink knee caps, chunky boots
-  for (const s of [-1, 1]) {
-    const hip = V(0.25 * s, 1.25, 0), knee = V(0.32 * s, 0.68, 0.14), ankle = V(0.3 * s, 0.2, -0.02);
+/* ---------- the whole robot, built for one pose ---------- */
+// Robot faces +Z; s = +1 is its left (lead) side at +X.
+// pose: { crouch, lean, bounce, L: [target, pole], R: [target, pole] } (targets in rest-pose space)
+const SZ = { a: 0.5, b: 0.5, up: 0.2, fore: 0.24, fist: 0.36 };
+const GUARD = { L: [V(0.36, 2.32, 0.55), V(1, -1, -0.6)], R: [V(-0.36, 2.18, 0.42), V(-1, -1, -0.6)] };
+const root = group(scene);
+let headBox = null;
+function build(p) {
+  root.clear();
+  const c = p.crouch || 0, lean = p.lean || 0, up = p.bounce || 0;
+  const body = group(root, 0, up, 0);
+  for (const s of [-1, 1]) {   // legs bend to absorb the crouch, feet stay planted
+    const hip = V(0.25 * s + lean * 0.5, 1.25 - c, 0), knee = V(0.32 * s + lean * 0.25, 0.68 - c * 0.45, 0.14 + c * 0.6), ankle = V(0.3 * s, 0.2, -0.02);
     limb(body, hip, knee, 0.28, 0.3, M.choc);
     limb(body, knee, ankle, 0.26, 0.28, M.mint);
     box(body, 0.22, 0.2, 0.12, M.pinkBall, knee.x, knee.y, knee.z + 0.14);
     box(body, 0.4, 0.26, 0.6, M.choc, ankle.x, 0.13, 0.08);
     box(body, 0.42, 0.06, 0.62, M.cream, ankle.x, 0.03, 0.08);
   }
-  // wrapper skirt + chocolate core + mint hoodie shell
-  mesh(body, new THREE.CylinderGeometry(0.5, 0.78, 0.5, 8), M.wrapper, 0, 1.25, 0);
-  const torso = mesh(body, new THREE.CylinderGeometry(0.78, 0.58, 0.95, 4).rotateY(Math.PI / 4), M.mint, 0, 1.95, 0);
+  const top = group(body, lean, -c, 0);           // everything from the hips up
+  mesh(top, new THREE.CylinderGeometry(0.5, 0.78, 0.5, 8), M.wrapper, 0, 1.25, 0);
+  const torso = mesh(top, new THREE.CylinderGeometry(0.78, 0.58, 0.95, 4).rotateY(Math.PI / 4), M.mint, 0, 1.95, 0);
   torso.scale.z = 0.66;
-  box(body, 0.62, 0.22, 0.08, M.wrapper, 0, 1.7, 0.36);                       // hoodie pocket
-  for (const s of [-1, 1]) box(body, 0.04, 0.34, 0.04, M.cream, 0.14 * s, 2.18, 0.4);  // drawstrings
-  box(body, 0.9, 0.42, 0.32, M.mint, 0, 2.5, -0.34);                          // bunched hood at the back
-  box(body, 0.3, 0.16, 0.3, M.choc, 0, 2.47, 0);                              // neck
-
-  // head with visor face and two "pigtail" antennae with candy tips
-  const head = group(body, 0, 2.86, 0.04);
-  const headBox = box(head, 0.8, 0.66, 0.66, faces(M.mint, M.face), 0, 0, 0);
-  const balls = [];
-  for (const s of [-1, 1]) {
+  box(top, 0.62, 0.22, 0.08, M.wrapper, 0, 1.7, 0.36);                        // hoodie pocket
+  for (const s of [-1, 1]) box(top, 0.04, 0.34, 0.04, M.cream, 0.14 * s, 2.18, 0.4);  // drawstrings
+  box(top, 0.9, 0.42, 0.32, M.mint, 0, 2.5, -0.34);                           // bunched hood at the back
+  box(top, 0.3, 0.16, 0.3, M.choc, 0, 2.47, 0);                               // neck
+  const head = group(top, 0, 2.86, 0.04);
+  headBox = box(head, 0.8, 0.66, 0.66, faces(M.mint, M.face), 0, 0, 0);
+  for (const s of [-1, 1]) {                                                  // pigtail antennae
     const base = V(0.34 * s, 0.26, -0.1), tip = V(0.62 * s, 0.6, -0.16);
     limb(head, base, tip, 0.06, 0.06, M.choc);
-    balls.push(mesh(head, new THREE.IcosahedronGeometry(0.14, 0), s < 0 ? M.pinkBall : M.mintBall, tip.x, tip.y, tip.z));
+    mesh(head, new THREE.IcosahedronGeometry(0.14, 0), s < 0 ? M.pinkBall : M.mintBall, tip.x, tip.y, tip.z);
     box(head, 0.1, 0.05, 0.1, M.cream, base.x * 1.15, base.y + 0.05, base.z);
   }
-
-  // arms in a bouncy guard (s = +1: her left, lead hand)
-  const armsGroup = group(body);
-  const SZ = { a: 0.5, b: 0.5, up: 0.2, fore: 0.24, fist: 0.36 };
-  function buildArms(t) {
-    armsGroup.clear();
-    for (const s of [-1, 1]) {
-      const lead = s === 1, bob = Math.sin(t * 4 + (lead ? 0.6 : 2.0)) * 0.04;
-      const S = V(0.5 * s, 2.28, 0.0);
-      const T = lead ? V(0.36, 2.32 + bob, 0.55) : V(-0.36, 2.18 + bob, 0.42);
-      arm(armsGroup, S, T, V(s, -1, -0.6), SZ);
-      mesh(armsGroup, new THREE.IcosahedronGeometry(0.2, 0), M.choc, S.x, S.y, S.z);    // shoulder ball
-    }
+  for (const s of [-1, 1]) {
+    const [T, pole] = (s > 0 ? p.L : p.R) || (s > 0 ? GUARD.L : GUARD.R);
+    const S = V(0.5 * s, 2.28, 0);
+    arm(top, S, T, pole, SZ);
+    mesh(top, new THREE.IcosahedronGeometry(0.2, 0), M.choc, S.x, S.y, S.z);  // shoulder ball
   }
+}
 
-  root.updateMatrixWorld(true);
+/* ---------- animation frames: column order = GamePlayerAnim ---------- */
+const lead = (T, pole) => [T, pole], P = V;
+const bob = k => ({ bounce: Math.abs(Math.sin(k * Math.PI / 4)) * 0.06,
+  L: [P(0.36, 2.32 + Math.sin(k * Math.PI / 2 + 0.6) * 0.04, 0.55), GUARD.L[1]],
+  R: [P(-0.36, 2.18 + Math.sin(k * Math.PI / 2 + 2.0) * 0.04, 0.42), GUARD.R[1]] });
+const FRAMES = [
+  bob(0), bob(1), bob(2), bob(3),
+  { L: lead(P(0.30, 2.28, 0.35), P(1, -1, -0.6)) },                                         // jab
+  { L: lead(P(0.12, 2.45, 1.2), P(1, -1, -0.6)), lean: 0.05 },
+  { R: lead(P(-0.40, 2.15, 0.3), P(-1, -1, -0.6)) },                                        // cross
+  { R: lead(P(-0.1, 2.45, 1.2), P(-1, -1, -0.6)), lean: 0.1 },
+  { L: lead(P(0.75, 2.35, 0.45), P(1, 0.3, -0.3)) },                                        // left hook
+  { L: lead(P(-0.05, 2.4, 0.75), P(1, 0.4, 0)), lean: -0.08 },
+  { R: lead(P(-0.75, 2.35, 0.45), P(-1, 0.3, -0.3)) },                                      // right hook
+  { R: lead(P(0.05, 2.4, 0.75), P(-1, 0.4, 0)), lean: 0.08 },
+  { L: lead(P(0.35, 1.85, 0.45), P(0.3, -1, -0.3)), crouch: 0.12 },                         // left uppercut
+  { L: lead(P(0.15, 2.85, 0.6), P(0.3, -1, 0.2)) },
+  { R: lead(P(-0.35, 1.85, 0.45), P(-0.3, -1, -0.3)), crouch: 0.12 },                       // right uppercut
+  { R: lead(P(-0.15, 2.85, 0.6), P(-0.3, -1, 0.2)) },
+  { L: lead(P(0.4, 2.1, 0.4), P(1, -1, -0.6)) },                                            // left body
+  { L: lead(P(0.15, 1.75, 0.95), P(1, -1, -0.3)), crouch: 0.18 },
+  { R: lead(P(-0.4, 2.1, 0.4), P(-1, -1, -0.6)) },                                          // right body
+  { R: lead(P(-0.15, 1.75, 0.95), P(-1, -1, -0.3)), crouch: 0.18 },
+  { R: lead(P(-0.85, 2.5, -0.2), P(-1, 0.5, -0.5)), lean: -0.1 },                           // haymaker
+  { R: lead(P(0.2, 2.45, 0.95), P(-1, 0.3, 0)), lean: 0.12 },
+  { L: lead(P(0.18, 2.75, 0.42), P(1, -1, 0)), R: lead(P(-0.18, 2.75, 0.42), P(-1, -1, 0)) }, // block
+  { crouch: 0.45 },                                                                          // duck
+  { lean: 0.35 },                                                                            // dodge left (+X)
+  { lean: -0.35 },                                                                           // dodge right
+];
+
+if (EXPORT) {
+  const out = await exportSheet({
+    renderer, scene, root, name: 'glitchpop_sheet.png', frameCount: FRAMES.length,
+    pose: i => build(FRAMES[i]),
+    palette: [...MINT, ...PINK, ...CHOC, CREAM, CREAM_D, CYAN, MAGENTA, '#d8fbff', '#ffffff',
+              '#0c0d14', '#141625', '#1d2036', '#272b48', '#05060a'],
+  });
+  window.EXPORT_DONE = { cellW: out.cellW, cellH: out.cellH, width: out.width, height: out.height };
+  info.textContent = `saved glitchpop_sheet.png ${out.width}×${out.height}`;
+  out.sheet.style.cssText = 'image-rendering:pixelated;max-width:98vw;max-height:95vh;background:#334';
+  renderer.domElement.replaceWith(out.sheet);
+} else {
+  /* showcase: ?frame=N shows one frame, otherwise the idle loop; drag to rotate */
+  scene.background = T.bg;
+  const camera = new THREE.PerspectiveCamera(34, W / H, 0.1, 100);
+  camera.position.set(0, 2.1, 9.0); camera.lookAt(0, 1.75, 0);
   let yaw = +(PARAMS.get('yaw') ?? -0.35), drag = null;
   renderer.domElement.addEventListener('pointerdown', e => { drag = e.clientX; renderer.domElement.setPointerCapture(e.pointerId); });
   addEventListener('pointermove', e => { if (drag !== null) { yaw += (e.clientX - drag) * 0.01; drag = e.clientX; } });
   addEventListener('pointerup', () => drag = null);
-  info.textContent = `Glitchpop · ${W}×${H} · drag to rotate`;
-
+  const fixed = PARAMS.get('frame');
+  info.textContent = `Glitchpop · ${W}×${H} · drag to rotate · ?frame=0..${FRAMES.length - 1}`;
   const clock = new THREE.Clock();
   renderer.setAnimationLoop(() => {
     const t = clock.getElapsedTime();
+    build(fixed !== null ? FRAMES[+fixed] : FRAMES[Math.floor(t * 6) % 4]);
     root.rotation.y = yaw;
-    body.position.y = Math.abs(Math.sin(t * 4)) * 0.06;              // light on her feet
-    buildArms(t);
-    balls.forEach((b, i) => b.position.y = 0.6 + Math.sin(t * 8 + i * 2) * 0.03);
-    // glitch: every ~1.7 s the face skips for a few frames
-    const g = (t % 1.7) < 0.12;
+    const g = (t % 1.7) < 0.12;                      // glitch: the face skips every ~1.7 s
     headBox.material[4] = g ? lam(T.faceGlitch) : M.face;
-    head.position.x = g ? (Math.random() - 0.5) * 0.08 : 0;
+    headBox.position.x = g ? (Math.random() - 0.5) * 0.08 : 0;
     renderer.render(scene, camera);
   });
-} else {
-  /* ================= first-person arms (left arm; right = mirror image) ================= */
-  // camera at the eyes looking down -Z; robot's left side is -X
-  // wide lens + slim arms held low, so the arms frame the enemy instead of hiding it (Doom-style)
-  const camera = new THREE.PerspectiveCamera(72, W / H, 0.05, 20);
-  const SZ = { a: 0.55, b: 0.55, up: 0.13, fore: 0.155, fist: 0.23 };
-  const S = V(-0.42, -0.62, 0.05);
-  const POSES = {
-    idle:  { T: V(-0.36, -0.36, -0.8),  pole: V(-1, -1, 0.3) },
-    punch: { T: V(-0.08, -0.17, -1.2),  pole: V(-1, -1, 0.3) },
-    body:  { T: V(-0.12, -0.38, -1.0),  pole: V(-1, -0.6, 0.3) },
-    hook:  { T: V(-0.03, -0.2, -0.85),  pole: V(-1, 0.25, 0.2), roll: Math.PI / 2 },
-    up:    { T: V(-0.13, -0.12, -0.78), pole: V(-0.2, -1, 0.4) },
-    block: { T: V(-0.15, -0.14, -0.62), pole: V(-0.4, -1, 0) },
-  };
-  const armRoot = group(scene);
-  function show(name) {
-    armRoot.clear();
-    const p = POSES[name];
-    arm(armRoot, S, p.T, p.pole, SZ, p.roll || 0);
-    renderer.render(scene, camera);
-  }
-  if (EXPORT) {
-    const done = {};
-    for (const name of Object.keys(POSES)) {
-      show(name);
-      done[`fist_left_${name}.png`] = await savePNG(renderer.domElement, `fist_left_${name}.png`, { crop: false });
-      done[`fist_right_${name}.png`] = await savePNG(renderer.domElement, `fist_right_${name}.png`, { crop: false, flip: true });
-    }
-    info.textContent = 'saved ' + Object.keys(done).length + ' images';
-    window.EXPORT_DONE = done;
-  } else {
-    const pose = PARAMS.get('pose') || 'idle';
-    scene.background = T.bg;
-    show(pose);
-    info.textContent = `first-person: ${pose} (?fp&pose=${Object.keys(POSES).join('|')})`;
-    window.showPose = show;
-  }
 }
 </script>
 </body>
