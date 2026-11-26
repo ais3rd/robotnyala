@@ -14,12 +14,14 @@ uses
   GameEnemyAnim in '..\code\gameenemyanim.pas',
   GameCamera in '..\code\gamecamera.pas',
   GamePlayerAnim in '..\code\gameplayeranim.pas',
+  GameImpact in '..\code\gameimpact.pas',
   TestCommands in 'TestCommands.pas',
   TestRobot in 'TestRobot.pas',
   TestCombat in 'TestCombat.pas',
   TestEnemyAnim in 'TestEnemyAnim.pas',
   TestCamera in 'TestCamera.pas',
-  TestPlayerAnim in 'TestPlayerAnim.pas';
+  TestPlayerAnim in 'TestPlayerAnim.pas',
+  TestImpact in 'TestImpact.pas';
 
 begin
   ExitCode := RunAllTests;

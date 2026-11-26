@@ -13,7 +13,7 @@ uses Classes,
   CastleVectors, CastleComponentSerialize,
   CastleUIControls, CastleControls, CastleKeysMouse,
   CastleViewport, CastleTransform, CastleScene,
-  GameCommands, GameRobot, GameCombat, GameEnemyAnim, GameCamera, GamePlayerAnim;
+  GameCommands, GameRobot, GameCombat, GameEnemyAnim, GameCamera, GamePlayerAnim, GameImpact;
 
 type
   TViewMain = class(TCastleView)
@@ -35,6 +35,7 @@ type
     Robot: TRobot;
     EnemyState: TEnemyState;
     EnemyAnim: TEnemyAnimator;
+    Feel: TImpactFeel;       // hit-stop, impact flash, shake, streak
     { Player robot on the floor plane; see GameCombat for the meaning of FacingDeg. }
     PlayerX, PlayerZ, FacingDeg: Single;
     IdleTime: Single;
@@ -150,6 +151,7 @@ begin
   Robot.OnImpact := {$ifdef FPC}@{$endif}PunchAt;
   EnemyState := TEnemyState.Create;
   EnemyAnim := TEnemyAnimator.Create;
+  Feel := TImpactFeel.Create;
 
   PlayerX := 0;
   PlayerZ := 0;
@@ -170,6 +172,7 @@ begin
   FreeAndNil(Robot);
   FreeAndNil(EnemyState);
   FreeAndNil(EnemyAnim);
+  FreeAndNil(Feel);
   inherited;
 end;
 
@@ -183,10 +186,17 @@ begin
   begin
     EnemyState.Hit(MoveDamage(Move));
     EnemyAnim.Hit(Move);
+    Feel.Hit(MoveDamage(Move), EnemyState.IsKO);
     FlashTimeLeft := HitFlashTime;
-    LabelLast.Caption := CommandName(Move) + ' - HIT!';
+    if Feel.Streak >= 2 then
+      LabelLast.Caption := CommandName(Move) + ' - HIT! x' + IntToStr(Feel.Streak)
+    else
+      LabelLast.Caption := CommandName(Move) + ' - HIT!';
   end else
+  begin
+    Feel.Miss;
     LabelLast.Caption := CommandName(Move) + ' - miss';
+  end;
 end;
 
 procedure TViewMain.RobotMoveStart(Sender: TObject; Move: TRobotCommand);
@@ -229,16 +239,18 @@ end;
 
 procedure TViewMain.Update(const SecondsPassed: Single; var HandleInput: Boolean);
 var
-  EX, EZ, CamX, CamZ, CamY, LookY: Single;
+  EX, EZ, CamX, CamZ, CamY, LookY, GameTime, S: Single;
   CamPos: TVector3;
 begin
   inherited;
   LabelFps.Caption := 'FPS: ' + Container.Fps.ToString;
 
-  Robot.Update(SecondsPassed);
-  EnemyState.Update(SecondsPassed);
-  EnemyAnim.Update(SecondsPassed, EnemyState.IsKO);
-  IdleTime := IdleTime + SecondsPassed;
+  { hit-stop: the fight itself stands still while Feel freezes it }
+  GameTime := Feel.Update(SecondsPassed);
+  Robot.Update(GameTime);
+  EnemyState.Update(GameTime);
+  EnemyAnim.Update(GameTime, EnemyState.IsKO);
+  IdleTime := IdleTime + GameTime;
 
   EX := Enemy.Translation.X;
   EZ := Enemy.Translation.Z;
@@ -253,7 +265,8 @@ begin
     CamY := OperatorHeight;
     LookY := OperatorLookHeight;
   end;
-  CamPos := Vector3(CamX, CamY, CamZ);
+  S := Feel.Shake;   // screen shake: jitter the camera, keep it aimed at the fight
+  CamPos := Vector3(CamX + (Random - 0.5) * S, CamY + (Random - 0.5) * S, CamZ + (Random - 0.5) * S);
   PlayerCamera.SetView(CamPos,
     (Vector3((PlayerX + EX) / 2, LookY, (PlayerZ + EZ) / 2) - CamPos).Normalize,
     Vector3(0, 1, 0));
@@ -267,6 +280,9 @@ begin
 
   if FlashTimeLeft > 0 then
     FlashTimeLeft := FlashTimeLeft - SecondsPassed;
+  if Feel.White then
+    Enemy.Color := Vector4(4, 4, 4, 1)          // impact frame: blown-out white
+  else
   if FlashTimeLeft > 0 then
     Enemy.Color := Vector4(1, 0.35, 0.35, 1)
   else
