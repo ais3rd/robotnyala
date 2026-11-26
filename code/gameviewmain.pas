@@ -62,9 +62,9 @@ uses SysUtils, CastleColors;
 const
   HitFlashTime = 0.15;
   EnemyHeight = 2.3;    // metres; both sheets have the same pixel density,
-  PlayerHeight = 1.71;  // so Glitchpop's 199 px cells are 199/268 of Boxer 07's
-  OperatorHeight = 1.5;       // a person on the arena floor...
-  OperatorLookHeight = 1.7;   // ...looking slightly up at the robots
+  PlayerHeight = 1.66;  // so Glitchpop's 188 px cells are 188/261 of Boxer 07's
+  OperatorHeight = 0.7;       // crouched at the ring apron (user's pick), so the legs show...
+  OperatorLookHeight = 1.1;   // ...looking up at the robots; sprites are drawn from 3 deg below to match
   ThreeQuarterHeight = 2.2;
   ThreeQuarterLookHeight = 1.2;
 

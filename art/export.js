@@ -12,11 +12,12 @@ export async function savePNG(canvas, name) {
 const hex = s => [1, 3, 5].map(i => parseInt(s.slice(i, i + 2), 16));
 
 // Sheet: rows = 8 view directions (0 = front, 2 = robot's left, 4 = back, 6 = robot's right),
-// columns = frames. Orthographic, looking `pitch` degrees down, one crop box for every cell
+// columns = frames. Orthographic, looking `pitch` degrees down (negative = up: -3 matches the
+// game's crouched operator camera), one crop box for every cell
 // (so the feet stay put), colours snapped to `palette`, 1-pixel dark outline.
 // pose(i) puts the robot in frame i (from its rest pose); the robot faces +Z at rotation 0.
 export async function exportSheet({ renderer, scene, root, frameCount, pose, palette, name,
-                                    FW = 200, FH = 270, span = 5.3, pitch = 15, outline = [10, 12, 15] }) {
+                                    FW = 200, FH = 270, span = 5.3, pitch = -3, outline = [10, 12, 15] }) {
   renderer.setSize(FW, FH, false);
   const aspect = FW / FH, lookY = span / 2 - 0.25, p = THREE.MathUtils.degToRad(pitch);
   const cam = new THREE.OrthographicCamera(-span * aspect / 2, span * aspect / 2, span / 2, -span / 2, 0.1, 100);
