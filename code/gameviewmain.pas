@@ -13,7 +13,8 @@ uses Classes,
   CastleVectors, CastleComponentSerialize,
   CastleUIControls, CastleControls, CastleKeysMouse,
   CastleViewport, CastleTransform, CastleScene,
-  GameCommands, GameRobot, GameCombat, GameEnemyAnim, GameCamera, GamePlayerAnim, GameImpact;
+  GameCommands, GameRobot, GameCombat, GameEnemyAnim, GameCamera, GamePlayerAnim, GameImpact,
+  GameVoice;
 
 type
   TViewMain = class(TCastleView)
@@ -37,12 +38,20 @@ type
     EnemyState: TEnemyState;
     EnemyAnim: TEnemyAnimator;
     Feel: TImpactFeel;       // hit-stop, impact flash, shake, streak
+    { voice: data/voice_listen.ps1 runs hidden and writes what it hears to a file }
+    Voice: TVoiceInbox;
+    VoiceProcess: THandle;
+    VoicePollLeft: Single;
+    VoiceStatus: string;
     { Player robot on the floor plane; see GameCombat for the meaning of FacingDeg. }
     PlayerX, PlayerZ, FacingDeg: Single;
     IdleTime: Single;
     FlashTimeLeft: Single;
     ThreeQuarter: Boolean;   // Tab: 3/4 camera instead of the operator camera
     procedure BuildRing;
+    procedure StartVoice;
+    procedure PollVoice;
+    procedure ShowStatus;
     procedure SubmitCommand(const Text: string);
     procedure RobotMoveStart(Sender: TObject; Move: TRobotCommand);
     procedure PunchAt(Sender: TObject; Move: TRobotCommand);
@@ -59,7 +68,7 @@ var
 
 implementation
 
-uses SysUtils, CastleColors, CastleRenderOptions;
+uses {$ifdef MSWINDOWS} Windows, {$endif} SysUtils, CastleColors, CastleRenderOptions, CastleUriUtils;
 
 const
   HitFlashTime = 0.15;
@@ -207,8 +216,10 @@ begin
   FlashTimeLeft := 0;
   ThreeQuarter := False;
   BuildRing;
+  StartVoice;
+  ShowStatus;
 
-  { all keys go to the command box (Wispr Flow types or pastes there) }
+  { all keys go to the command box (typing and dictation tools like Wispr Flow still work) }
   Container.ForceCaptureInput := EditCommand;
 end;
 
@@ -216,11 +227,85 @@ procedure TViewMain.Stop;
 begin
   if Container.ForceCaptureInput = EditCommand then
     Container.ForceCaptureInput := nil;
+  {$ifdef MSWINDOWS}
+  if VoiceProcess <> 0 then
+  begin
+    TerminateProcess(VoiceProcess, 0);
+    CloseHandle(VoiceProcess);
+    VoiceProcess := 0;
+  end;
+  {$endif}
+  FreeAndNil(Voice);
   FreeAndNil(Robot);
   FreeAndNil(EnemyState);
   FreeAndNil(EnemyAnim);
   FreeAndNil(Feel);
   inherited;
+end;
+
+{ Start the hidden speech helper (Windows' offline recognizer, restricted to the
+  command phrases). It writes each recognized phrase as a line to VoiceFile. }
+procedure TViewMain.StartVoice;
+{$ifdef MSWINDOWS}
+var
+  VoiceFile, Cmd: string;
+  SI: TStartupInfo;
+  PI: TProcessInformation;
+begin
+  VoiceFile := GetTempDir + 'robotnyala_voice.txt';
+  DeleteFile(VoiceFile);
+  Voice := TVoiceInbox.Create(VoiceFile);
+  Cmd := 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "' +
+    UriToFilenameSafe('castle-data:/voice_listen.ps1') + '" -Out "' + VoiceFile +
+    '" -Phrases "' + AllPhrases + '" -ParentPid ' + IntToStr(GetCurrentProcessId);
+  UniqueString(Cmd); // CreateProcess may write into the command line
+  FillChar(SI, SizeOf(SI), 0);
+  SI.cb := SizeOf(SI);
+  if CreateProcess(nil, PChar(Cmd), nil, nil, False, CREATE_NO_WINDOW, nil, nil, SI, PI) then
+  begin
+    CloseHandle(PI.hThread);
+    VoiceProcess := PI.hProcess;
+    VoiceStatus := 'Mic: starting...';
+  end else
+    VoiceStatus := 'Mic: off (PowerShell not found)';
+end;
+{$else}
+begin
+  VoiceStatus := 'Mic: off (voice needs Windows)';
+end;
+{$endif}
+
+{ New lines from the speech helper: status lines start with '#', the rest are commands. }
+procedure TViewMain.PollVoice;
+var
+  Lines: TStringList;
+  I: Integer;
+begin
+  if Voice = nil then Exit;
+  Lines := TStringList.Create;
+  try
+    Voice.Poll(Lines);
+    for I := 0 to Lines.Count - 1 do
+      if Lines[I] = '#ready' then
+        VoiceStatus := 'Mic: listening'
+      else
+      if Copy(Lines[I], 1, 6) = '#error' then
+        VoiceStatus := 'Mic: off (' + Trim(Copy(Lines[I], 7, MaxInt)) + ')'
+      else
+      if Lines[I] <> '' then
+        SubmitCommand(Lines[I]);
+  finally
+    Lines.Free;
+  end;
+  ShowStatus;
+end;
+
+procedure TViewMain.ShowStatus;
+begin
+  if ThreeQuarter then
+    LabelCamera.Caption := 'Camera: 3/4 (Tab)   ' + VoiceStatus
+  else
+    LabelCamera.Caption := 'Camera: operator (Tab)   ' + VoiceStatus;
 end;
 
 { Robot.OnImpact: the punch reaches full extension (halfway through the move) }
@@ -337,6 +422,13 @@ begin
 
   HPBar.Width := HPBarBack.Width * EnemyState.HP / MaxHP;
   LabelKO.Exists := EnemyState.IsKO;
+
+  VoicePollLeft := VoicePollLeft - SecondsPassed;
+  if VoicePollLeft <= 0 then
+  begin
+    VoicePollLeft := 0.1;
+    PollVoice;
+  end;
 end;
 
 function TViewMain.Press(const Event: TInputPressRelease): Boolean;
@@ -357,15 +449,14 @@ begin
     { each camera has sprite sheets drawn from its own height (art/export.js exportViews) }
     if ThreeQuarter then
     begin
-      LabelCamera.Caption := 'Camera: 3/4 (Tab)';
       Enemy.Url := 'castle-data:/images/enemy_sheet_high.png';
       Player.Url := 'castle-data:/images/glitchpop_sheet_high.png';
     end else
     begin
-      LabelCamera.Caption := 'Camera: operator (Tab)';
       Enemy.Url := 'castle-data:/images/enemy_sheet.png';
       Player.Url := 'castle-data:/images/glitchpop_sheet.png';
     end;
+    ShowStatus;
     Exit(true);
   end;
 end;

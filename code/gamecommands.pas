@@ -32,6 +32,9 @@ function ParseCommand(const S: string; out Cmd: TRobotCommand): Boolean;
 { Text to show on screen, e.g. 'LEFT HOOK'. }
 function CommandName(Cmd: TRobotCommand): string;
 
+{ Every accepted phrase, joined with '|' (what the speech recognizer listens for). }
+function AllPhrases: string;
+
 implementation
 
 uses SysUtils;
@@ -125,6 +128,15 @@ end;
 function CommandName(Cmd: TRobotCommand): string;
 begin
   Result := Names[Cmd];
+end;
+
+function AllPhrases: string;
+var
+  I: Integer;
+begin
+  Result := Phrases[Low(Phrases)].Text;
+  for I := Low(Phrases) + 1 to High(Phrases) do
+    Result := Result + '|' + Phrases[I].Text;
 end;
 
 end.

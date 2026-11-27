@@ -15,13 +15,15 @@ uses
   GameCamera in '..\code\gamecamera.pas',
   GamePlayerAnim in '..\code\gameplayeranim.pas',
   GameImpact in '..\code\gameimpact.pas',
+  GameVoice in '..\code\gamevoice.pas',
   TestCommands in 'TestCommands.pas',
   TestRobot in 'TestRobot.pas',
   TestCombat in 'TestCombat.pas',
   TestEnemyAnim in 'TestEnemyAnim.pas',
   TestCamera in 'TestCamera.pas',
   TestPlayerAnim in 'TestPlayerAnim.pas',
-  TestImpact in 'TestImpact.pas';
+  TestImpact in 'TestImpact.pas',
+  TestVoice in 'TestVoice.pas';
 
 begin
   ExitCode := RunAllTests;

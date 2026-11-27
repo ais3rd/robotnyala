@@ -73,7 +73,31 @@ begin
   Check(CommandName(rcLeftHook) = 'LEFT HOOK', 'display name of left hook');
 end;
 
+{ the speech recognizer listens for exactly these, so each must parse back to a command }
+procedure TestAllPhrases;
+var
+  List: string;
+  P: Integer;
+  One: string;
+  C: TRobotCommand;
+  Count: Integer;
+begin
+  List := AllPhrases + '|';
+  Count := 0;
+  while List <> '' do
+  begin
+    P := Pos('|', List);
+    One := Copy(List, 1, P - 1);
+    Delete(List, 1, P);
+    Check(ParseCommand(One, C), 'phrase parses: ' + One);
+    Inc(Count);
+  end;
+  Check(Count = 28, 'all 28 phrases are listed');
+  Check(Pos('|left hook|', '|' + AllPhrases + '|') > 0, 'left hook is one of them');
+end;
+
 initialization
+  RegisterTest('Commands.TestAllPhrases', TestAllPhrases);
   RegisterTest('Commands.TestExact', TestExact);
   RegisterTest('Commands.TestAlias', TestAlias);
   RegisterTest('Commands.TestWisprPunctuation', TestWisprPunctuation);

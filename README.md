@@ -4,8 +4,11 @@ A robot boxing prototype made with [Castle Game Engine](https://castle-engine.io
 You are the operator at the ropes, behind your robot Glitchpop. Speak (or type) boxing commands; Glitchpop carries
 them out against Boxer 07, which stands its ground. Press **Tab** to switch between the operator camera and a 3/4 view.
 
-Voice works through any dictation tool that types into the focused window, such as Wispr Flow:
-click the game window, dictate a command, press Enter.
+**Voice control is built in** (Windows): the game starts a hidden helper (`data/voice_listen.ps1`) that
+listens on the default microphone with Windows' offline speech recognizer, restricted to the command
+phrases below. Just say a command; the label at the top right shows `Mic: listening`. It needs the
+English (US) speech recognizer, which Windows includes with English language support. Typing, and
+dictation tools like Wispr Flow that type into the window, still work too.
 
 ## Commands
 
@@ -31,6 +34,7 @@ The enemy starts 2 m away, out of reach: say `forward` twice first.
 - `code/gameplayeranim.pas`: which Glitchpop sprite-sheet frame to show (idle, 4 frames per punch, defense)
 - `code/gamecamera.pas`: operator / 3/4 cameras and which of the 8 sprite directions to show
 - `code/gameimpact.pas`: hit feel: hit-stop freeze, white impact frame, screen shake, hit streak
+- `code/gamevoice.pas`: reads the commands the speech helper writes (new lines only)
 - `code/gameviewmain.pas`: connects the rules to the screen and builds the ring
 - `data/gameviewmain.castle-user-interface`: viewport, both robot sprites and labels (open it in the Castle Engine editor)
 - `data/images/`: sprite sheets (rows = 8 view directions, columns = frames), rendered from the models in `art/`
